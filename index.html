@@ -148,7 +148,6 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <div class="tab" onclick="switchTab('packing')">🖨 Packing Slips</div>
   <div class="tab" onclick="switchTab('unconfirmed')" style="border-left:1px solid #2D3F5A">⏳ Unconfirmed</div>
   <div class="tab" onclick="switchTab('planning')">📋 Production Planning</div>
-  <div class="tab" onclick="switchTab('scheduled')">📅 Scheduled</div>
 </div>
 
 <div class="main">
@@ -256,10 +255,32 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
     <div id="planningTable"></div>
   </div>
 
-  <div class="tab-content" id="tab-scheduled">
-    <div id="scheduledTable"></div>
-  </div>
 
+</div>
+
+<!-- DISPATCH CONFIRM MODAL -->
+<div id="dispatchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;overflow:auto;padding:20px">
+  <div style="background:#fff;border-radius:12px;max-width:820px;margin:40px auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="background:#1B2A4A;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">Confirm Dispatch</div>
+        <div style="font-size:11px;color:#9A9288;margin-top:2px">Review quantities — edit if needed before deducting from inventory</div>
+      </div>
+      <button onclick="closeDispatchModal()" style="background:none;border:none;color:#9A9288;font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div id="dispatchSummaryTable" style="overflow:auto;max-height:60vh"></div>
+      <div style="margin-top:14px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border:1px solid #86EFAC;font-size:12px;color:#166534;font-weight:500" id="dispatchSummaryTotal"></div>
+      <div style="margin-top:8px;padding:10px 14px;background:#FEF3C7;border-radius:8px;border:1px solid #FCD34D;font-size:11px;color:#92400E">
+        ⚠️ This will deduct quantities from your Final Inventory in Google Sheets. Cannot be undone.
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;align-items:center">
+      <div id="dispatchStatus" style="font-size:12px;color:#166534;flex:1"></div>
+      <button onclick="closeDispatchModal()" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:9px 20px;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
+      <button onclick="confirmDispatch()" id="confirmDispatchBtn" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:9px 24px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">✓ Confirm & Update Inventory</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -359,6 +380,8 @@ const PRODUCT_IMAGES = {
 // STATE
 // ============================================================
 const SIZES = ["XS","S","M","L","XL","2XL","3XL"];
+const SECRET_KEY = "sanabharat2418";
+window.APPS_SCRIPT_URL = ""; // paste your Apps Script Web App URL here after setup
 const SIZE_ALIASES = {"XXL":"2XL","2XL":"2XL","3XL":"3XL"};
 let shopifyRaw=null, trackerWB=null, erpRaw=null;
 let inventory={}, pendingStitch={}, productImages={};
@@ -375,7 +398,7 @@ function normalizeSize(s){
 // ============================================================
 // TAB
 // ============================================================
-const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','scheduled'];
+const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning'];
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TAB_NAMES[i]===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -710,10 +733,10 @@ function parseShopify(rows){
     const iName=iNameCol!==-1?String(row[iNameCol]||''):sku;
     const om=meta[on]||{};
     const isConfirmed=om.notes&&om.notes.toLowerCase().includes('confirmed');
-    const deliveryDate=isConfirmed?parseDeliveryDate(om.notes):null;
+    const _dd=isConfirmed?parseDeliveryDate(om.notes):null;
+    const deliveryDate=_dd?_dd.getTime():null; // store as timestamp for reliable comparison
     const deliveryDateStr=isConfirmed?parseDeliveryDateStr(om.notes):null;
-    const isFutureDelivery=deliveryDate&&deliveryDate>new Date();
-    if(deliveryDate) console.log('ORDER:'+on+' deliveryDate:'+deliveryDate+' isFuture:'+isFutureDelivery+' note:'+om.notes);
+    const isFutureDelivery=deliveryDate&&deliveryDate>Date.now();
     if(!isConfirmed){
       // store unconfirmed for separate tab
       if(!window._unconfirmedOrders) window._unconfirmedOrders={};
@@ -816,14 +839,11 @@ function runDashboard(){
     });
     const allOk=results.every(r=>r.short===0);
     const anyOk=results.some(r=>r.canSend>0);
-    const isFuture=items[0].isFutureDelivery||false;
-    const deliveryDate=items[0].deliveryDate||null;
+    const deliveryDate=items[0].deliveryDate?new Date(items[0].deliveryDate):null;
     const deliveryDateStr=items[0].deliveryDateStr||null;
     const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,isFutureDelivery:isFuture,deliveryDate,deliveryDateStr};
-    if(isFuture){
-      scheduledOrders.push(obj);
-    } else if(status==='ready'){
+    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr};
+    if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
     } else if(status==='partial') partialOrders.push(obj);
@@ -864,7 +884,7 @@ function runDashboard(){
   document.getElementById('cVendor').textContent=tVendor;
 
   window.scheduledOrders=scheduledOrders;
-  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking(); renderUnconfirmed(); renderPlanning(); renderScheduled();
+  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking(); renderUnconfirmed(); renderPlanning();
 }
 
 // ============================================================
@@ -1025,13 +1045,19 @@ function renderDispatch(){
   if(pf) orders=orders.filter(o=>o.priority.level===pf);
   const totalUnits=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
   let h='<div class="sec-title">✅ Ready to Dispatch <span class="stcount">'+orders.length+' orders · '+totalUnits+' units</span></div>';
-  h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th></tr></thead><tbody>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">';
+  h+='<button onclick="selectAllDispatch(true)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☑ Select All</button>';
+  h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
+  h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
+  h+='</div>';
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th></tr></thead><tbody>';
   let prev='';
   orders.forEach(o=>{
     o.items.forEach(item=>{
       const isFirst=o.orderNum!==prev; prev=o.orderNum;
       h+='<tr'+(isFirst?' class="order-sep"':'')+' >';
       if(isFirst){
+        h+='<td rowspan="'+(o.items.length)+'" style="text-align:center"><input type="checkbox" class="dispatch-chk" data-order="'+(o.orderNum)+'" style="width:15px;height:15px;cursor:pointer"></td>';
         h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong></td>';
         h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'</td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
@@ -1042,10 +1068,11 @@ function renderDispatch(){
       h+='<td class="num"><strong>'+item.qty+'</strong></td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
+      if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">\U0001f4c5 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
       h+='</tr>';
     });
   });
-  if(!orders.length) h+='<tr><td colspan="7"><div class="empty">No orders ready to dispatch.</div></td></tr>';
+  if(!orders.length) h+='<tr><td colspan="8"><div class="empty">No orders ready to dispatch.</div></td></tr>';
   h+='</tbody><tfoot><tr><td colspan="6">TOTAL UNITS TO DISPATCH</td><td class="num">'+totalUnits+'</td></tr></tfoot></table></div>';
   document.getElementById('dispatchTable').innerHTML=h;
 }
@@ -1335,6 +1362,143 @@ function renderScheduled(){
   });
   h+='</tbody></table></div>';
   wrap.innerHTML=h;
+}
+
+
+// ============================================================
+// DISPATCH CONFIRMATION
+// ============================================================
+let dispatchEditQtys = {}; // stores edited quantities
+
+function selectAllDispatch(checked){
+  document.querySelectorAll('.dispatch-chk').forEach(cb=>cb.checked=checked);
+  const master = document.getElementById('chkAll');
+  if(master) master.checked = checked;
+}
+
+function openDispatchModal(){
+  const checked = [...document.querySelectorAll('.dispatch-chk:checked')];
+  if(checked.length===0){alert('Please select at least one order to dispatch.');return;}
+
+  const selectedOrders = checked.map(cb=>cb.getAttribute('data-order'));
+  const orders = readyOrders.filter(o=>selectedOrders.includes(o.orderNum));
+
+  dispatchEditQtys = {};
+  orders.forEach(o=>{
+    o.items.forEach(item=>{
+      const key = o.orderNum+'|'+item.code+'|'+item.finalSize;
+      dispatchEditQtys[key] = item.qty;
+    });
+  });
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:#F8F6F3;border-bottom:2px solid #E5E7EB">';
+  h += '<th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;color:#6B7280">Order</th>';
+  h += '<th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;color:#6B7280">Customer</th>';
+  h += '<th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;color:#6B7280">Product</th>';
+  h += '<th style="padding:8px 12px;text-align:center;font-size:10px;text-transform:uppercase;color:#6B7280">Code</th>';
+  h += '<th style="padding:8px 12px;text-align:center;font-size:10px;text-transform:uppercase;color:#6B7280">Size</th>';
+  h += '<th style="padding:8px 12px;text-align:center;font-size:10px;text-transform:uppercase;color:#1A6B5A">Qty to Deduct</th>';
+  h += '</tr></thead><tbody>';
+
+  let prevOrder = '';
+  let totalUnits = 0;
+  orders.forEach(o=>{
+    o.items.forEach((item,idx)=>{
+      const isFirst = o.orderNum !== prevOrder; prevOrder = o.orderNum;
+      const key = o.orderNum+'|'+item.code+'|'+item.finalSize;
+      const rowBg = isFirst ? '#F0FFF4' : (idx%2===0?'#FAFAFA':'#FFF');
+      h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+rowBg+'">';
+      if(isFirst){
+        h += '<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-weight:600;font-size:12px;vertical-align:middle">'+o.orderNum+'</td>';
+        h += '<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;color:#6B7280;vertical-align:middle">'+o.customer+'</td>';
+      }
+      const pName = PRODUCT_IMAGES[item.code]?PRODUCT_IMAGES[item.code].name:item.itemName;
+      h += '<td style="padding:8px 12px;vertical-align:middle"><div style="display:flex;align-items:center;gap:8px">';
+      const img = PRODUCT_IMAGES[item.code];
+      if(img) h += '<img src="'+img.data+'" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0">';
+      h += '<span style="font-weight:500">'+pName+'</span></div></td>';
+      h += '<td style="padding:8px 12px;text-align:center;font-size:11px;color:#6B7280;font-family:monospace">'+item.code+'</td>';
+      h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:600">'+item.finalSize+'</span></td>';
+      h += '<td style="padding:8px 12px;text-align:center"><input type="number" min="0" max="'+item.qty+'" value="'+item.qty+'" data-key="'+key+'" onchange="updateDispatchQty(this)" style="width:60px;text-align:center;border:1px solid #D1FAE5;border-radius:6px;padding:4px 8px;font-size:13px;font-weight:600;color:#1A6B5A;font-family:inherit"></td>';
+      h += '</tr>';
+      totalUnits += item.qty;
+    });
+  });
+
+  h += '</tbody></table>';
+
+  document.getElementById('dispatchSummaryTable').innerHTML = h;
+  document.getElementById('dispatchSummaryTotal').innerHTML = '📦 ' + orders.length + ' orders selected · ' + totalUnits + ' total units to deduct from inventory';
+  document.getElementById('dispatchStatus').innerHTML = '';
+  document.getElementById('dispatchModal').style.display = 'block';
+}
+
+function updateDispatchQty(input){
+  const key = input.getAttribute('data-key');
+  dispatchEditQtys[key] = parseInt(input.value)||0;
+}
+
+function closeDispatchModal(){
+  document.getElementById('dispatchModal').style.display = 'none';
+}
+
+function confirmDispatch(){
+  // Build deduction payload: {code: {size: qty}}
+  const deductions = {};
+  const ordersList = [];
+  Object.entries(dispatchEditQtys).forEach(([key,qty])=>{
+    if(qty<=0) return;
+    const [orderNum,code,size] = key.split('|');
+    if(!deductions[code]) deductions[code] = {};
+    deductions[code][size] = (deductions[code][size]||0) + qty;
+    if(!ordersList.includes(orderNum)) ordersList.push(orderNum);
+  });
+
+  const SCRIPT_URL = window.APPS_SCRIPT_URL || '';
+
+  if(!SCRIPT_URL){
+    // No Apps Script connected yet - show what would be deducted
+    let msg = 'The following would be deducted from Final Inventory:\n\n';
+    Object.entries(deductions).forEach(([code,sizes])=>{
+      Object.entries(sizes).forEach(([size,qty])=>{
+        msg += code + ' ' + size + ': -' + qty + '\n';
+      });
+    });
+    msg += '\nTo enable automatic inventory update, please connect the Google Apps Script (see instructions).';
+    alert(msg);
+    return;
+  }
+
+  // Send to Apps Script
+  const btn = document.getElementById('confirmDispatchBtn');
+  btn.textContent = '⏳ Updating...';
+  btn.disabled = true;
+  document.getElementById('dispatchStatus').innerHTML = '<span style="color:#92400E">Updating inventory...</span>';
+
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action: 'deductInventory', deductions, orders: ordersList, key: SECRET_KEY})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.success){
+      document.getElementById('dispatchStatus').innerHTML = '<span style="color:#166534">✅ Inventory updated successfully!</span>';
+      btn.textContent = '✓ Done';
+      btn.style.background = '#166534';
+      setTimeout(()=>closeDispatchModal(), 2000);
+    } else {
+      document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Error: '+data.error+'</span>';
+      btn.textContent = '✓ Confirm & Update Inventory';
+      btn.disabled = false;
+    }
+  })
+  .catch(err=>{
+    document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Connection error. Check Apps Script URL.</span>';
+    btn.textContent = '✓ Confirm & Update Inventory';
+    btn.disabled = false;
+  });
 }
 
 function printPackingSlips(){
