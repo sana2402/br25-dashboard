@@ -665,6 +665,33 @@ function parseShopify(rows){
     if(row[createdCol]) meta[on].createdAt=row[createdCol];
   }
 
+  // Pre-pass: detect replaced/removed items
+  // When Shopify swaps an item, the old item has compare_at_price='' 
+  // and the new item has compare_at_price='0.00' in the same order
+  const capCol=headers.indexOf('lineitem compare at price');
+  const replacedSkus={};
+  if(capCol!==-1){
+    const orderItemMap={};
+    let lOrder='';
+    for(let i=hRow+1;i<rows.length;i++){
+      const row=rows[i];
+      const on=row[oCol]?String(row[oCol]).trim():lOrder;
+      if(on) lOrder=on;
+      const sku=String(row[skuCol]||'').trim();
+      if(!sku) continue;
+      const cap=String(row[capCol]===null||row[capCol]===undefined?'':row[capCol]).trim();
+      if(!orderItemMap[on]) orderItemMap[on]=[];
+      orderItemMap[on].push({sku,cap});
+    }
+    Object.entries(orderItemMap).forEach(function(entry){
+      const on=entry[0], items=entry[1];
+      if(items.some(function(i){return i.cap==='0.00';})){
+        if(!replacedSkus[on]) replacedSkus[on]={};
+        items.filter(function(i){return i.cap==='';}).forEach(function(i){replacedSkus[on][i.sku]=true;});
+      }
+    });
+  }
+
   const items=[]; last='';
   for(let i=hRow+1;i<rows.length;i++){
     const row=rows[i];
@@ -674,6 +701,7 @@ function parseShopify(rows){
     if(fStatus==='fulfilled') continue;
     const sku=String(row[skuCol]||'').trim();
     if(!sku) continue;
+    if(replacedSkus[on]&&replacedSkus[on][sku]) continue; // skip removed items
     const m=sku.match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
     if(!m) continue;
     const code=m[1].trim().toUpperCase();
@@ -775,7 +803,7 @@ function runDashboard(){
     return priOrder(orderGroups[a][0].priority.level)-priOrder(orderGroups[b][0].priority.level);
   });
 
-  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; let scheduledOrders=[];
+  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[];
 
   sorted.forEach(on=>{
     const items=orderGroups[on];
