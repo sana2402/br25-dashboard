@@ -381,7 +381,7 @@ const PRODUCT_IMAGES = {
 // ============================================================
 const SIZES = ["XS","S","M","L","XL","2XL","3XL"];
 const SECRET_KEY = "sanabharat2418";
-window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSHWwJWMLWxH-SzZf6H_0GcxtsqHcqaoZMSCln4CoJpyI0Hk8YwrYeAAYjwISxbi7DQQ/exec";
+window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSjnlpNSf6xjo_2LQvFB1Wb-mjt1DS92CVaTarO4wnF2m5OWoZ62_UCajmIxsAFQU20g/exec";
 const SIZE_ALIASES = {"XXL":"2XL","2XL":"2XL","3XL":"3XL"};
 let shopifyRaw=null, trackerWB=null, erpRaw=null;
 let inventory={}, pendingStitch={}, productImages={};
@@ -1068,7 +1068,7 @@ function renderDispatch(){
       h+='<td class="num"><strong>'+item.qty+'</strong></td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
-      if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">\U0001f4c5 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
+      if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">📅 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
       h+='</tr>';
     });
   });
@@ -1476,26 +1476,21 @@ function confirmDispatch(){
   btn.disabled = true;
   document.getElementById('dispatchStatus').innerHTML = '<span style="color:#92400E">Updating inventory...</span>';
 
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({action: 'deductInventory', deductions, orders: ordersList, key: SECRET_KEY})
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    if(data.success){
-      document.getElementById('dispatchStatus').innerHTML = '<span style="color:#166534">✅ Inventory updated successfully!</span>';
-      btn.textContent = '✓ Done';
-      btn.style.background = '#166534';
-      setTimeout(()=>closeDispatchModal(), 2000);
-    } else {
-      document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Error: '+data.error+'</span>';
-      btn.textContent = '✓ Confirm & Update Inventory';
-      btn.disabled = false;
-    }
+  // Use no-cors mode for Google Apps Script from GitHub Pages
+  // Apps Script accepts GET with encoded payload
+  const payload = encodeURIComponent(JSON.stringify({action:'deductInventory',deductions,orders:ordersList,key:SECRET_KEY}));
+  const url = SCRIPT_URL + '?payload=' + payload;
+
+  fetch(url, {method:'GET', mode:'no-cors'})
+  .then(()=>{
+    // no-cors returns opaque response - we can't read it but request was sent
+    document.getElementById('dispatchStatus').innerHTML = '<span style="color:#166534">✅ Request sent! Check your Google Sheet in a few seconds.</span>';
+    btn.textContent = '✓ Done';
+    btn.style.background = '#166534';
+    setTimeout(()=>closeDispatchModal(), 2500);
   })
   .catch(err=>{
-    document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Connection error. Check Apps Script URL.</span>';
+    document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Connection error: '+err.message+'</span>';
     btn.textContent = '✓ Confirm & Update Inventory';
     btn.disabled = false;
   });
