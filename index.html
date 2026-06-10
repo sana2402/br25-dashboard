@@ -713,6 +713,7 @@ function parseShopify(rows){
     const deliveryDate=isConfirmed?parseDeliveryDate(om.notes):null;
     const deliveryDateStr=isConfirmed?parseDeliveryDateStr(om.notes):null;
     const isFutureDelivery=deliveryDate&&deliveryDate>new Date();
+    if(deliveryDate) console.log('ORDER:'+on+' deliveryDate:'+deliveryDate+' isFuture:'+isFutureDelivery+' note:'+om.notes);
     if(!isConfirmed){
       // store unconfirmed for separate tab
       if(!window._unconfirmedOrders) window._unconfirmedOrders={};
