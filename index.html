@@ -79,7 +79,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .table-wrap{background:var(--surface);border-radius:10px;overflow:auto;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:24px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 thead tr{background:#F8F6F3;border-bottom:2px solid var(--border)}
-thead th{padding:9px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);white-space:nowrap}
+thead th{padding:9px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);white-space:nowrap;position:sticky;top:0;z-index:10;background:var(--surface);box-shadow:0 1px 0 var(--border)}
 th.num,td.num{text-align:center}
 tbody tr{border-bottom:1px solid #F0EDE8;transition:background .1s}
 tbody tr:hover{background:#FAF8F5}
@@ -783,15 +783,26 @@ function runDashboard(){
   // Parse inventory
   const invSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('final inventory'))||trackerWB.SheetNames[0];
   const pendSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('pending'))||trackerWB.SheetNames[1];
-  const invRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[invSheetName],{header:1,defval:null});
-  const pendRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[pendSheetName],{header:1,defval:null});
+  let invRows, pendRows;
+  if(trackerWB._fromSheets){
+    invRows = trackerWB.Sheets['Final Inventory']._rows;
+    pendRows = trackerWB.Sheets['Pending Stitching Report']._rows;
+  } else {
+    invRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[invSheetName],{header:1,defval:null});
+    pendRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[pendSheetName],{header:1,defval:null});
+  }
 
   inventory = parseInventory(invRows);
   pendingStitch = parsePendingStitch(pendRows);
 
   // Parse Quality Checking tab
-  const qcSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('quality'))||null;
-  const qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
+  let qcData = {};
+  if(trackerWB._fromSheets){
+    qcData = parseQualityCheck(trackerWB.Sheets['Quality Checking']._rows||[]);
+  } else {
+    const qcSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('quality'))||null;
+    qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
+  }
 
 
   // Update images from ERP if uploaded
@@ -955,7 +966,7 @@ function renderOrders(){
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
-  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Short</th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Short</th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
     o.items.forEach((item,idx)=>{
@@ -975,6 +986,8 @@ function renderOrders(){
       h+='<td class="num" style="color:'+fg+'">'+item.avail+'</td>';
       const qcAmt=item.withQC||0;
       h+='<td class="num">'+(qcAmt>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+qcAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
+      const vendorAmt=(pendingStitch[item.code]&&pendingStitch[item.code][item.finalSize]&&pendingStitch[item.code][item.finalSize].vendor)||0;
+      h+='<td class="num">'+(vendorAmt>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+vendorAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
       h+='</tr>';
     });
@@ -1589,6 +1602,52 @@ function showDispatchNotification(timeStr, orders){
 
   // Auto remove after 8 seconds
   setTimeout(()=>{ if(notif.parentElement) notif.remove(); }, 8000);
+}
+
+
+function loadFromSheets(){
+  const btn = document.querySelector('#ucTracker button');
+  const status = document.getElementById('s2');
+  if(btn) btn.textContent = '⏳ Loading...';
+  status.textContent = 'Fetching from Google Sheets...';
+
+  const url = window.APPS_SCRIPT_URL + '?action=getData&key=' + SECRET_KEY;
+
+  fetch(url, {method:'GET', mode:'no-cors'})
+  .then(()=>{
+    // no-cors returns opaque - try with cors instead
+    return fetch(url, {method:'GET'});
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.success){
+      // Store as global arrays like XLSX would
+      window._sheetsInvRows = data.data.inventory;
+      window._sheetsPendRows = data.data.pending;
+      window._sheetsQCRows = data.data.qualityCheck;
+      trackerWB = {
+        SheetNames: ['Final Inventory','Pending Stitching Report','Quality Checking'],
+        Sheets: {
+          'Final Inventory': {_rows: data.data.inventory},
+          'Pending Stitching Report': {_rows: data.data.pending},
+          'Quality Checking': {_rows: data.data.qualityCheck}
+        },
+        _fromSheets: true
+      };
+      status.textContent = '✓ Loaded from Google Sheets';
+      document.getElementById('ucTracker').style.borderColor = '#10B981';
+      document.getElementById('ucTracker').style.background = '#F0FDF4';
+      if(btn) btn.textContent = '✅ Loaded from Google Sheets';
+    } else {
+      status.textContent = '❌ ' + (data.error||'Failed to load');
+      if(btn) btn.textContent = '🔄 Load from Google Sheets';
+    }
+  })
+  .catch(err=>{
+    status.textContent = '❌ Connection error — upload file instead';
+    if(btn) btn.textContent = '🔄 Load from Google Sheets';
+    console.log('Sheets fetch error:', err);
+  });
 }
 
 function printPackingSlips(){
