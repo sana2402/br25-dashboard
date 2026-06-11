@@ -877,11 +877,15 @@ function runDashboard(){
           name:inventory[item.code]?inventory[item.code].name:item.itemName,
           totalShort:0,hand:inv,withQC:withQCCount,lying:ps.lying,vendor:ps.vendor,orders:[]};
       }
-      // Subtract QC pieces from shortfall - they will come back
-      const effectiveShort=Math.max(0,item.short-((qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0));
-      prodMap[key].totalShort+=effectiveShort;
+      prodMap[key].totalShort+=item.short;
       prodMap[key].orders.push(o.orderNum);
     });
+  });
+  // Subtract QC pieces from total shortfall once per code+size
+  Object.values(prodMap).forEach(p=>{
+    const withQC=(qcDeducted[p.code]&&qcDeducted[p.code][p.size])||0;
+    p.withQC=withQC;
+    p.totalShort=Math.max(0,p.totalShort-withQC);
   });
   productionNeeds=Object.values(prodMap).filter(p=>p.totalShort>0).sort((a,b)=>b.totalShort-a.totalShort);
 
