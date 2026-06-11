@@ -766,7 +766,7 @@ function parseShopify(rows){
       // Replace this item with the new style+size
       const finalSize=styleSwap.newSize;
       const finalCode=styleSwap.newCode;
-      items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+      items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
       continue;
     }
     const finalSize=changes[code]||origSize;
