@@ -934,7 +934,7 @@ function renderOrders(){
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
-  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num">Short</th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Short</th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
     o.items.forEach((item,idx)=>{
@@ -952,11 +952,13 @@ function renderOrders(){
       h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span></td>';
       h+='<td class="num">'+item.qty+'</td>';
       h+='<td class="num" style="color:'+fg+'">'+item.avail+'</td>';
+      const qcAmt=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
+      h+='<td class="num">'+(qcAmt>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+qcAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
       h+='</tr>';
     });
   });
-  if(!all.length) h+='<tr><td colspan="10"><div class="empty">No orders match filters.</div></td></tr>';
+  if(!all.length) h+='<tr><td colspan="11"><div class="empty">No orders match filters.</div></td></tr>';
   h+='</tbody></table></div>';
   document.getElementById('ordersTable').innerHTML=h;
 }
@@ -1043,11 +1045,14 @@ function renderDispatch(){
   const pf=document.getElementById('fDispatchPri').value;
   let orders=[...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
   if(pf) orders=orders.filter(o=>o.priority.level===pf);
+  const qcHoldOnly=document.getElementById('filterQCHold')&&document.getElementById('filterQCHold').checked;
+  if(qcHoldOnly) orders=orders.filter(o=>o.items.some(i=>(qcDeducted[i.code]&&qcDeducted[i.code][i.finalSize]>0)));
   const totalUnits=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
   let h='<div class="sec-title">✅ Ready to Dispatch <span class="stcount">'+orders.length+' orders · '+totalUnits+' units</span></div>';
-  h+='<div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">';
+  h+='<div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">';
   h+='<button onclick="selectAllDispatch(true)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☑ Select All</button>';
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
+  h+='<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:6px 12px"><input type="checkbox" id="filterQCHold" onchange="renderDispatch()" style="cursor:pointer"> 🟡 QC Hold only</label>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
   h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
@@ -1058,7 +1063,7 @@ function renderDispatch(){
       h+='<tr'+(isFirst?' class="order-sep"':'')+' >';
       if(isFirst){
         h+='<td rowspan="'+(o.items.length)+'" style="text-align:center"><input type="checkbox" class="dispatch-chk" data-order="'+(o.orderNum)+'" style="width:15px;height:15px;cursor:pointer"></td>';
-        h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong></td>';
+        h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong>'+(dispatchedOrders[o.orderNum]?'<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ '+dispatchedOrders[o.orderNum]+'</div>':'')+' </td>';
         h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'</td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
       }
@@ -1388,6 +1393,7 @@ function renderScheduled(){
 // DISPATCH CONFIRMATION
 // ============================================================
 let dispatchEditQtys = {}; // stores edited quantities
+const dispatchedOrders = {}; // {orderNum: timestamp string}
 
 function selectAllDispatch(checked){
   document.querySelectorAll('.dispatch-chk').forEach(cb=>cb.checked=checked);
@@ -1503,16 +1509,51 @@ function confirmDispatch(){
   fetch(url, {method:'GET', mode:'no-cors'})
   .then(()=>{
     // no-cors returns opaque response - we can't read it but request was sent
-    document.getElementById('dispatchStatus').innerHTML = '<span style="color:#166534">✅ Request sent! Check your Google Sheet in a few seconds.</span>';
-    btn.textContent = '✓ Done';
-    btn.style.background = '#166534';
-    setTimeout(()=>closeDispatchModal(), 2500);
+    // Store dispatch timestamp
+    const now=new Date();
+    const timeStr=now.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+    const confirmedOrders=[...new Set(Object.keys(dispatchEditQtys).map(k=>k.split('|')[0]))];
+    confirmedOrders.forEach(on=>{ dispatchedOrders[on]='Dispatched '+timeStr; });
+    document.getElementById('dispatchStatus').innerHTML='<span style="color:#166534">✅ Inventory updated in Google Sheets!</span>';
+    showDispatchNotification(timeStr, confirmedOrders);
+    btn.textContent='✓ Done';
+    btn.style.background='#166534';
+    renderDispatch();
+    setTimeout(()=>closeDispatchModal(), 3000);
   })
   .catch(err=>{
     document.getElementById('dispatchStatus').innerHTML = '<span style="color:#991B1B">❌ Connection error: '+err.message+'</span>';
     btn.textContent = '✓ Confirm & Update Inventory';
     btn.disabled = false;
   });
+}
+
+
+function showDispatchNotification(timeStr, orders){
+  // Remove any existing notification
+  const existing = document.getElementById('dispatchNotif');
+  if(existing) existing.remove();
+
+  const notif = document.createElement('div');
+  notif.id = 'dispatchNotif';
+  notif.style.cssText = 'position:fixed;top:20px;right:20px;z-index:2000;background:#1A6B5A;color:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);max-width:320px;animation:slideIn 0.3s ease';
+  notif.innerHTML = '<div style="font-size:14px;font-weight:600;margin-bottom:6px">✅ Inventory Updated!</div>'
+    + '<div style="font-size:12px;opacity:0.9">'+orders.length+' order'+(orders.length>1?'s':'')+' dispatched on '+timeStr+'</div>'
+    + '<div style="font-size:11px;opacity:0.7;margin-top:4px">'+orders.join(', ')+'</div>'
+    + '<div style="font-size:11px;opacity:0.7;margin-top:6px">Google Sheets inventory has been deducted.</div>'
+    + '<button onclick="this.parentElement.remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#fff;font-size:16px;cursor:pointer;opacity:0.7">✕</button>';
+  document.body.appendChild(notif);
+
+  // Add animation style if not present
+  if(!document.getElementById('notifStyle')){
+    const style = document.createElement('style');
+    style.id = 'notifStyle';
+    style.textContent = '@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}';
+    document.head.appendChild(style);
+  }
+
+  // Auto remove after 8 seconds
+  setTimeout(()=>{ if(notif.parentElement) notif.remove(); }, 8000);
 }
 
 function printPackingSlips(){
