@@ -792,8 +792,7 @@ function runDashboard(){
   // Parse Quality Checking tab
   const qcSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('quality'))||null;
   const qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
-  console.log('QC Sheet found:', qcSheetName);
-  console.log('QC Data:', JSON.stringify(qcData));
+
 
   // Update images from ERP if uploaded
   if(erpRaw){
@@ -815,7 +814,6 @@ function runDashboard(){
   const stockLeft={};
   window.qcDeducted={};
   const qcDeducted=window.qcDeducted;
-  console.log('Starting stock loop, inventory codes:', Object.keys(inventory).length);
   for(const code in inventory){
     stockLeft[code]={};
     qcDeducted[code]={};
@@ -826,8 +824,7 @@ function runDashboard(){
       qcDeducted[code][sz]=Math.min(withQC,inHand);
     });
   }
-  console.log('qcDeducted BR25-39:', JSON.stringify(qcDeducted['BR25-39']));
-  console.log('qcDeducted BR25-02:', JSON.stringify(qcDeducted['BR25-02']));
+
 
   // Parse orders
   const allLines = parseShopify(shopifyRaw);
@@ -967,7 +964,7 @@ function renderOrders(){
       h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span></td>';
       h+='<td class="num">'+item.qty+'</td>';
       h+='<td class="num" style="color:'+fg+'">'+item.avail+'</td>';
-      const qcAmt=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
+      const qcAmt=item.withQC||0;
       h+='<td class="num">'+(qcAmt>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+qcAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
       h+='</tr>';
