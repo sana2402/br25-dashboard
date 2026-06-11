@@ -802,7 +802,8 @@ function runDashboard(){
 
   // Clone stock minus pieces currently with quality checker
   const stockLeft={};
-  const qcDeducted={};
+  window.qcDeducted={};
+  const qcDeducted=window.qcDeducted;
   for(const code in inventory){
     stockLeft[code]={};
     qcDeducted[code]={};
@@ -827,7 +828,7 @@ function runDashboard(){
     return priOrder(orderGroups[a][0].priority.level)-priOrder(orderGroups[b][0].priority.level);
   });
 
-  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[];
+  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[]; window.qcDeducted={};
 
   sorted.forEach(on=>{
     const items=orderGroups[on];
