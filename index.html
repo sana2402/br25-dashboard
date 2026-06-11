@@ -825,6 +825,8 @@ function runDashboard(){
       qcDeducted[code][sz]=Math.min(withQC,inHand);
     });
   }
+  console.log('qcDeducted BR25-39:', JSON.stringify(qcDeducted['BR25-39']));
+  console.log('qcDeducted BR25-02:', JSON.stringify(qcDeducted['BR25-02']));
 
   // Parse orders
   const allLines = parseShopify(shopifyRaw);
