@@ -899,6 +899,24 @@ function runDashboard(){
     p.committed=p.totalShort; // store original committed before QC reduction
     p.totalShort=Math.max(0,p.totalShort-withQC);
   });
+
+  // Calculate potential short: add unconfirmed order quantities
+  const unconfirmedList=Object.values(window._unconfirmedOrders||{});
+  const unconfirmedShortfall={}; // {code|size: qty}
+  unconfirmedList.forEach(o=>{
+    o.items.forEach(item=>{
+      const key=item.code+'|'+item.size;
+      unconfirmedShortfall[key]=(unconfirmedShortfall[key]||0)+item.qty;
+    });
+  });
+  // Add potential short to each prodMap item
+  Object.values(prodMap).forEach(p=>{
+    const key=p.code+'|'+p.size;
+    const extra=unconfirmedShortfall[key]||0;
+    p.potentialShort=p.totalShort+extra; // total if all unconfirmed confirm
+    p.unconfirmedExtra=extra;
+  });
+
   productionNeeds=Object.values(prodMap).filter(p=>p.totalShort>0).sort((a,b)=>b.totalShort-a.totalShort);
 
   // Cards
@@ -1028,10 +1046,13 @@ function renderInventory(){
 // ============================================================
 function renderProduction(){
   const needsCut=productionNeeds.filter(p=>p.hand===0&&p.lying===0&&p.vendor===0);
-  const sendToVendor=productionNeeds.filter(p=>p.lying>0&&p.vendor===0); // has lying cut, not with vendor
-  const withVendor=productionNeeds.filter(p=>p.vendor>0&&p.lying===0); // with vendor, no lying cut
-  const bothLyingAndVendor=productionNeeds.filter(p=>p.lying>0&&p.vendor>0); // has both
-  const other=productionNeeds.filter(p=>!needsCut.includes(p)&&!sendToVendor.includes(p)&&!withVendor.includes(p)&&!bothLyingAndVendor.includes(p));
+  // Vendor already covers shortfall - just follow up
+  const vendorCovers=productionNeeds.filter(p=>p.vendor>=p.totalShort&&p.vendor>0);
+  // Has lying cut but vendor doesn't fully cover - send more to vendor
+  const sendToVendor=productionNeeds.filter(p=>p.lying>0&&!vendorCovers.includes(p));
+  // With vendor but not enough lying cut
+  const withVendor=productionNeeds.filter(p=>p.vendor>0&&p.lying===0&&!vendorCovers.includes(p));
+  const other=productionNeeds.filter(p=>!needsCut.includes(p)&&!vendorCovers.includes(p)&&!sendToVendor.includes(p)&&!withVendor.includes(p));
 
   function section(title,items,color,note){
     if(!items.length) return '';
@@ -1068,9 +1089,9 @@ function renderProduction(){
   }
 
   let h=section('✂️ Needs to be Cut — Nothing at any stage',needsCut,'var(--red)','No stock, nothing cut, not with vendor. Start from scratch.');
+  h+=section('⏳ Follow Up Vendor — Already Covered',vendorCovers,'#10B981','Vendor pieces already cover the shortfall. Just follow up for return.');
   h+=section('🧵 Send to Vendor — Lying Cut, Not Yet Stitched',sendToVendor,'var(--amber)','Pieces are cut and with you. Send to stitching vendor immediately.');
   h+=section('⏳ With Vendor — Awaiting Return',withVendor,'#3B82F6','Already given for stitching. Follow up with vendor.');
-  h+=section('🧵⏳ Lying Cut + With Vendor',bothLyingAndVendor,'#8B5CF6','Some pieces cut, some already with vendor.');
   h+=section('📋 Other Shortfalls',other,'var(--ink-muted)','');
   if(!h) h='<div class="empty">🎉 No production requirements — all orders can be fulfilled!</div>';
   document.getElementById('productionTable').innerHTML=h;
@@ -1309,6 +1330,7 @@ function renderPlanning(){
     h+='<thead><tr style="background:#F8F6F3;border-bottom:1px solid var(--border)">';
     h+='<th style="padding:7px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Size</th>';
     h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Short</th>';
+    h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#7C3AED">Potential Short</th>';
     h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#D97706">Lying Cut</th>';
     h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#3B82F6">With Vendor</th>';
     h+='<th style="padding:7px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Action</th>';
@@ -1323,7 +1345,11 @@ function renderPlanning(){
     });
 
     sortedSizes.forEach(sz=>{
-      const action=sz.lying>0?
+      // If vendor pieces already cover the shortfall, follow up vendor first
+      // Otherwise if lying cut available, send to vendor
+      const action=sz.vendor>=sz.totalShort?
+        '<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up Vendor</span>':
+        sz.lying>0?
         '<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">🧵 Send to Vendor</span>':
         sz.vendor>0?
         '<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up Vendor</span>':
@@ -1332,6 +1358,15 @@ function renderPlanning(){
       h+='<tr style="border-bottom:0.5px solid #F0EDE8">';
       h+='<td style="padding:7px 12px"><span style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 8px;font-size:11px;font-weight:600">'+sz.size+'</span></td>';
       h+='<td style="padding:7px 12px;text-align:center"><strong style="color:#EF4444">'+sz.totalShort+'</strong></td>';
+      const potShort=sz.potentialShort||sz.totalShort;
+      const extraUnconf=sz.unconfirmedExtra||0;
+      h+='<td style="padding:7px 12px;text-align:center">';
+      if(extraUnconf>0){
+        h+='<strong style="color:#7C3AED">'+potShort+'</strong><span style="font-size:10px;color:#7C3AED;margin-left:3px">(+'+extraUnconf+')</span>';
+      } else {
+        h+='<span style="color:#BBBBBB">—</span>';
+      }
+      h+='</td>';
       h+='<td style="padding:7px 12px;text-align:center;color:'+(sz.lying>0?'#D97706':'#BBBBBB')+'">'+sz.lying+'</td>';
       h+='<td style="padding:7px 12px;text-align:center;color:'+(sz.vendor>0?'#3B82F6':'#BBBBBB')+'">'+sz.vendor+'</td>';
       h+='<td style="padding:7px 12px">'+action+'</td>';
