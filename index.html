@@ -683,7 +683,7 @@ function parseShopify(rows){
     const on=row[oCol]?String(row[oCol]).trim():last;
     if(on) last=on;
     if(!meta[on]) meta[on]={notes:'',createdAt:null,customer:'',payment:''};
-    if(row[notesCol]&&!meta[on].notes) meta[on].notes=String(row[notesCol]);
+    if(row[notesCol]&&!meta[on].notes) meta[on].notes=String(row[notesCol]).trim();
     if(row[custCol]) meta[on].customer=String(row[custCol]);
     if(row[createdCol]) meta[on].createdAt=row[createdCol];
   }
@@ -752,14 +752,14 @@ function parseShopify(rows){
       // Replace this item with the new style+size
       const finalSize=styleSwap.newSize;
       const finalCode=styleSwap.newCode;
-      items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery});
+      items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
       continue;
     }
     const finalSize=changes[code]||origSize;
     const changed=finalSize!==origSize;
     const pri=getPriority(om.createdAt);
-    items.push({orderNum:on,code,origSize,finalSize,sizeChanged:changed,qty,itemName:iName,
-                customer:om.customer,createdAt:om.createdAt,priority:pri});
+    items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
+                customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
   }
   return items;
 }
@@ -1050,7 +1050,7 @@ function renderDispatch(){
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
-  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th></tr></thead><tbody>';
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
   let prev='';
   orders.forEach(o=>{
     o.items.forEach(item=>{
@@ -1069,6 +1069,11 @@ function renderDispatch(){
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">📅 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
+      // Shopify note cell
+      if(isFirst){
+        const noteText=o.items[0].note||'';
+        h+='<td rowspan="'+(o.items.length)+'" style="font-size:10px;color:#6B7280;max-width:180px;word-wrap:break-word;padding:8px 10px;vertical-align:middle">'+(noteText?noteText:'<span style="color:#BBBBBB">—</span>')+'</td>';
+      }
       h+='</tr>';
     });
   });
@@ -1130,9 +1135,22 @@ function renderUnconfirmed(){
     o.items.forEach((item,idx)=>{
       const isFirst=o.orderNum!==prevOrder; prevOrder=o.orderNum;
       const inv=inventory[item.code]&&inventory[item.code].sizes[item.size];
-      const inHand=inv||0;
+      const rawInHand=inv||0;
+      // Subtract stock already committed to confirmed ready/partial/blocked orders
+      let committedQty=0;
+      [...readyOrders,...partialOrders,...blockedOrders].forEach(co=>{
+        co.items.forEach(ci=>{
+          if(ci.code===item.code&&ci.finalSize===item.size) committedQty+=ci.qty;
+        });
+      });
+      const inHand=Math.max(0,rawInHand-committedQty);
+      // Also check lying cut and with vendor from pendingStitch
+      const ps=(pendingStitch[item.code]&&pendingStitch[item.code][item.size])||{lying:0,vendor:0};
       const canShip=Math.min(inHand,item.qty);
       const short=item.qty-canShip;
+      const needsCut=short>0&&ps.lying===0&&ps.vendor===0;
+      const lyingCut=short>0&&ps.lying>0;
+      const withVendor=short>0&&ps.vendor>0&&ps.lying===0;
       const rowBg=isFirst?'#FFFBF0':'';
       h+='<tr style="border-top:'+(isFirst&&idx>0?'2px solid var(--border)':'none')+';background:'+rowBg+'">';
       if(isFirst){
@@ -1154,7 +1172,8 @@ function renderUnconfirmed(){
       } else if(canShip>0){
         h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--amber-light);color:var(--amber);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+canShip+' of '+item.qty+'</span></td>';
       } else {
-        h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--red-light);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">Short '+short+'</span></td>';
+        const prodTag=needsCut?'<span style="background:#FEE2E2;color:#991B1B;border-radius:3px;padding:1px 5px;font-size:10px;display:block;margin-top:3px">✂️ Needs Cutting</span>':lyingCut?'<span style="background:#FEF3C7;color:#92400E;border-radius:3px;padding:1px 5px;font-size:10px;display:block;margin-top:3px">🧵 Send to Vendor</span>':withVendor?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:3px;padding:1px 5px;font-size:10px;display:block;margin-top:3px">⏳ With Vendor</span>':'';
+      h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--red-light);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">Short '+short+'</span>'+prodTag+'</td>';
       }
       h+='</tr>';
     });
