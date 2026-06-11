@@ -639,15 +639,10 @@ function parseQualityCheck(rows){
     if(!codeMatch) continue;
     const code=codeMatch[1].trim().toUpperCase();
 
-    // Calculate pending manually: Total - Returned
-    // This handles formula cells that XLSX.js can't evaluate
+    // Always compute pending as Total - Returned (formula cells not evaluated by XLSX.js)
     const total=Number(row[totalCol])||0;
     const returned=Number(row[returnedCol])||0;
-    const pendingRaw=row[pendingCol];
-    // Use formula-calculated value if it's a number, otherwise compute manually
-    const pending=(!isNaN(Number(pendingRaw))&&pendingRaw!==null&&pendingRaw!==''&&pendingRaw!==undefined)
-      ? Number(pendingRaw)
-      : Math.max(0, total - returned);
+    const pending=Math.max(0, total - returned);
 
     if(pending<=0) continue;
 
