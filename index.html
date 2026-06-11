@@ -792,6 +792,8 @@ function runDashboard(){
   // Parse Quality Checking tab
   const qcSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('quality'))||null;
   const qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
+  console.log('QC Sheet found:', qcSheetName);
+  console.log('QC Data:', JSON.stringify(qcData));
 
   // Update images from ERP if uploaded
   if(erpRaw){
