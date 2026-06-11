@@ -870,16 +870,20 @@ function runDashboard(){
       const key=item.code+'|'+item.finalSize;
       if(!prodMap[key]){
         const ps=(pendingStitch[item.code]&&pendingStitch[item.code][item.finalSize])||{lying:0,vendor:0};
-        const inv=inventory[item.code]?inventory[item.code].sizes[item.finalSize]||0:0;
+        // Use stockLeft (after QC deduction) for accurate in-hand count
+        const inv=stockLeft[item.code]?stockLeft[item.code][item.finalSize]||0:(inventory[item.code]?inventory[item.code].sizes[item.finalSize]||0:0);
+        const withQCCount=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
         prodMap[key]={code:item.code,size:item.finalSize,
           name:inventory[item.code]?inventory[item.code].name:item.itemName,
-          totalShort:0,hand:inv,lying:ps.lying,vendor:ps.vendor,orders:[]};
+          totalShort:0,hand:inv,withQC:withQCCount,lying:ps.lying,vendor:ps.vendor,orders:[]};
       }
-      prodMap[key].totalShort+=item.short;
+      // Subtract QC pieces from shortfall - they will come back
+      const effectiveShort=Math.max(0,item.short-((qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0));
+      prodMap[key].totalShort+=effectiveShort;
       prodMap[key].orders.push(o.orderNum);
     });
   });
-  productionNeeds=Object.values(prodMap).sort((a,b)=>b.totalShort-a.totalShort);
+  productionNeeds=Object.values(prodMap).filter(p=>p.totalShort>0).sort((a,b)=>b.totalShort-a.totalShort);
 
   // Cards
   const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
@@ -1006,21 +1010,23 @@ function renderInventory(){
 // ============================================================
 function renderProduction(){
   const needsCut=productionNeeds.filter(p=>p.hand===0&&p.lying===0&&p.vendor===0);
-  const sendToVendor=productionNeeds.filter(p=>p.lying>0&&p.hand===0&&p.vendor===0);
-  const withVendor=productionNeeds.filter(p=>p.vendor>0&&p.hand===0&&p.lying===0);
-  const other=productionNeeds.filter(p=>!needsCut.includes(p)&&!sendToVendor.includes(p)&&!withVendor.includes(p));
+  const sendToVendor=productionNeeds.filter(p=>p.lying>0&&p.vendor===0); // has lying cut, not with vendor
+  const withVendor=productionNeeds.filter(p=>p.vendor>0&&p.lying===0); // with vendor, no lying cut
+  const bothLyingAndVendor=productionNeeds.filter(p=>p.lying>0&&p.vendor>0); // has both
+  const other=productionNeeds.filter(p=>!needsCut.includes(p)&&!sendToVendor.includes(p)&&!withVendor.includes(p)&&!bothLyingAndVendor.includes(p));
 
   function section(title,items,color,note){
     if(!items.length) return '';
     let h='<div class="sec-title" style="color:'+color+'">'+title+' <span class="stcount">'+items.length+' SKUs</span></div>';
     if(note) h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">'+note+'</div>';
-    h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Short</th><th class="num">In Hand</th><th class="num">Lying Cut</th><th class="num">With Vendor</th><th class="num">Oldest Order</th><th>Waiting Orders</th></tr></thead><tbody>';
+    h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Short</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Lying Cut</th><th class="num">With Vendor</th><th class="num">Oldest Order</th><th>Waiting Orders</th></tr></thead><tbody>';
     items.forEach(p=>{
       h+='<tr><td><div class="prod-cell">'+imgTag(p.code)+'<span class="prod-name">'+p.name+'</span></div></td>';
       h+='<td class="code">'+p.code+'</td>';
       h+='<td class="num"><span class="size-badge">'+p.size+'</span></td>';
       h+='<td class="num"><strong style="color:var(--red)">'+p.totalShort+'</strong></td>';
       h+='<td class="num">'+p.hand+'</td>';
+      h+='<td class="num">'+(p.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">'+(p.withQC)+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num" style="color:var(--yellow)">'+p.lying+'</td>';
       h+='<td class="num" style="color:#3B82F6">'+p.vendor+'</td>';
       // Find oldest order for this shortfall
@@ -1045,6 +1051,7 @@ function renderProduction(){
   let h=section('✂️ Needs to be Cut — Nothing at any stage',needsCut,'var(--red)','No stock, nothing cut, not with vendor. Start from scratch.');
   h+=section('🧵 Send to Vendor — Lying Cut, Not Yet Stitched',sendToVendor,'var(--amber)','Pieces are cut and with you. Send to stitching vendor immediately.');
   h+=section('⏳ With Vendor — Awaiting Return',withVendor,'#3B82F6','Already given for stitching. Follow up with vendor.');
+  h+=section('🧵⏳ Lying Cut + With Vendor',bothLyingAndVendor,'#8B5CF6','Some pieces cut, some already with vendor.');
   h+=section('📋 Other Shortfalls',other,'var(--ink-muted)','');
   if(!h) h='<div class="empty">🎉 No production requirements — all orders can be fulfilled!</div>';
   document.getElementById('productionTable').innerHTML=h;
