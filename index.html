@@ -885,6 +885,7 @@ function runDashboard(){
   Object.values(prodMap).forEach(p=>{
     const withQC=(qcDeducted[p.code]&&qcDeducted[p.code][p.size])||0;
     p.withQC=withQC;
+    p.committed=p.totalShort; // store original committed before QC reduction
     p.totalShort=Math.max(0,p.totalShort-withQC);
   });
   productionNeeds=Object.values(prodMap).filter(p=>p.totalShort>0).sort((a,b)=>b.totalShort-a.totalShort);
@@ -1023,11 +1024,12 @@ function renderProduction(){
     if(!items.length) return '';
     let h='<div class="sec-title" style="color:'+color+'">'+title+' <span class="stcount">'+items.length+' SKUs</span></div>';
     if(note) h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">'+note+'</div>';
-    h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Short</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Lying Cut</th><th class="num">With Vendor</th><th class="num">Oldest Order</th><th>Waiting Orders</th></tr></thead><tbody>';
+    h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Committed</th><th class="num">Still Short</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Lying Cut</th><th class="num">With Vendor</th><th class="num">Oldest Order</th><th>Waiting Orders</th></tr></thead><tbody>';
     items.forEach(p=>{
       h+='<tr><td><div class="prod-cell">'+imgTag(p.code)+'<span class="prod-name">'+p.name+'</span></div></td>';
       h+='<td class="code">'+p.code+'</td>';
       h+='<td class="num"><span class="size-badge">'+p.size+'</span></td>';
+      h+='<td class="num" style="color:#6B7280;font-weight:500">'+(p.committed||p.totalShort)+'</td>';
       h+='<td class="num"><strong style="color:var(--red)">'+p.totalShort+'</strong></td>';
       h+='<td class="num">'+p.hand+'</td>';
       h+='<td class="num">'+(p.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">'+(p.withQC)+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
