@@ -815,6 +815,7 @@ function runDashboard(){
   const stockLeft={};
   window.qcDeducted={};
   const qcDeducted=window.qcDeducted;
+  console.log('Starting stock loop, inventory codes:', Object.keys(inventory).length);
   for(const code in inventory){
     stockLeft[code]={};
     qcDeducted[code]={};
