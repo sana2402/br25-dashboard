@@ -61,7 +61,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 /* BADGES */
 .pri{display:inline-block;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
-.pri.critical{background:#FEE2E2;color:#991B1B}
+.pri.urgent{background:#7C3AED;color:#fff}.pri.critical{background:#FEE2E2;color:#991B1B}
 .pri.high{background:var(--orange-light);color:var(--orange)}
 .pri.medium{background:var(--amber-light);color:var(--amber)}
 .pri.new{background:var(--green-light);color:var(--green)}
@@ -459,7 +459,20 @@ function setLoaded(cardId,statusId,name){
 // ============================================================
 // PRIORITY
 // ============================================================
-function getPriority(createdAt){
+function getPriority(createdAt, notes){
+  // Check for urgent flag in notes
+  if(notes&&notes.toLowerCase().includes('urgent')){
+    // Still calculate days for display
+    let d=null;
+    if(createdAt){
+      if(typeof createdAt==='string'){d=new Date(createdAt.replace(' ','T'));if(isNaN(d.getTime()))d=new Date(createdAt);}
+      else if(typeof createdAt==='number'){d=new Date(Math.round((createdAt-25569)*86400*1000));}
+      else{d=new Date(createdAt);}
+      if(isNaN(d.getTime()))d=null;
+    }
+    const days=d?Math.max(0,Math.floor((new Date()-d)/(1000*60*60*24))):0;
+    return {level:'urgent',label:'Urgent',days,date:d};
+  }
   if(!createdAt) return {level:'new',label:'New',days:0,date:null};
   let d;
   if(typeof createdAt==='string'){
@@ -734,9 +747,9 @@ function parseShopify(rows){
     }
     Object.entries(orderItemMap).forEach(function(entry){
       const on=entry[0], items=entry[1];
-      if(items.some(function(i){return i.cap==='0.00';})){
+      if(items.some(function(i){return i.cap==='0.00'||i.cap===0||i.cap==='0';})){
         if(!replacedSkus[on]) replacedSkus[on]={};
-        items.filter(function(i){return i.cap==='';}).forEach(function(i){replacedSkus[on][i.sku]=true;});
+        items.filter(function(i){return i.cap===''||i.cap===null||i.cap===undefined;}).forEach(function(i){replacedSkus[on][i.sku]=true;});
       }
     });
   }
@@ -753,10 +766,10 @@ function parseShopify(rows){
     if(replacedSkus[on]&&replacedSkus[on][sku]) continue; // skip removed items
     // Also skip if this item has cap='' and the order has a replacement with cap='0.00' for same base code
     const thisCap=capCol!==-1?String(row[capCol]===null||row[capCol]===undefined?'':row[capCol]).trim():'x';
-    if(thisCap===''&&capCol!==-1){
+    if((thisCap===''||thisCap===null||thisCap===undefined)&&capCol!==-1){
       const baseCode=sku.replace(/-[A-Z0-9XL23]+$/i,'').toUpperCase();
       const orderItems=orderItemMap[on]||[];
-      if(orderItems.some(i=>i.cap==='0.00'&&i.sku.toUpperCase().startsWith(baseCode+'-'))) continue;
+      if(orderItems.some(i=>(i.cap==='0.00'||i.cap===0||i.cap==='0')&&i.sku.toUpperCase().startsWith(baseCode+'-'))) continue;
     }
     const m=sku.match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
     if(!m) continue;
@@ -790,7 +803,7 @@ function parseShopify(rows){
       if(!alreadyActive){
         const finalSize=styleSwap.newSize;
         const finalCode=styleSwap.newCode;
-        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
       }
       continue;
     }
@@ -977,7 +990,8 @@ function imgTag(code){
 }
 function priBadge(p){
   const ds=p.days===0?'today':p.days===1?'1 day':p.days+' days';
-  return '<span class="pri '+p.level+'">'+p.label+' · '+ds+'</span>';
+  const prefix=p.level==='urgent'?'🚨 ':'';
+  return '<span class="pri '+p.level+'">'+prefix+p.label+' · '+ds+'</span>';
 }
 function statusBadge(s){
   return '<span class="status '+s+'">'+(s==='ready'?'✅ Ready':s==='partial'?'⚠️ Partial':'❌ No Inventory')+'</span>';
