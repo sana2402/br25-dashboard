@@ -262,6 +262,23 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 
 </div>
 
+<!-- PICKER LIST MODAL -->
+<div id="pickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;overflow:auto;padding:20px">
+  <div style="background:#fff;border-radius:12px;max-width:900px;margin:30px auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="background:#1B2A4A;color:#F5F2ED;padding:14px 24px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">🗒 Picker List</div>
+        <div style="font-size:11px;color:#9A9288;margin-top:2px">Grouped by style — give this to your warehouse picker</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button onclick="window.print()" style="background:#52B788;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit">🖨 Print</button>
+        <button onclick="document.getElementById('pickerModal').style.display='none'" style="background:none;border:none;color:#9A9288;font-size:22px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div id="pickerListContent" style="padding:20px;overflow:auto;max-height:80vh"></div>
+  </div>
+</div>
+
 <!-- DISPATCH CONFIRM MODAL -->
 <div id="dispatchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;overflow:auto;padding:20px">
   <div style="background:#fff;border-radius:12px;max-width:820px;margin:40px auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
@@ -1123,6 +1140,7 @@ function renderDispatch(){
   h+='<button onclick="selectAllDispatch(true)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☑ Select All</button>';
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
 
+  h+='<button onclick="openPickerList()" style="background:#4A7FB5;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🗒 Picker List</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
   h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
@@ -1683,6 +1701,121 @@ function loadFromSheets(){
     if(btn) btn.textContent = '🔄 Load from Google Sheets';
     console.log('Sheets fetch error:', err);
   });
+}
+
+
+function openPickerList(){
+  // Group ready orders by style code+size
+  const styleMap = {}; // {code: {name, image, sizes: {sz: qty}, orders: []}}
+
+  readyOrders.forEach(o=>{
+    o.items.forEach(item=>{
+      const code = item.code;
+      const sz = item.finalSize;
+      if(!styleMap[code]){
+        const img = PRODUCT_IMAGES && PRODUCT_IMAGES[code];
+        styleMap[code] = {
+          code,
+          name: img ? img.name : item.itemName.split(' - ')[0],
+          image: img ? img.data : null,
+          sizes: {},
+          orders: []
+        };
+      }
+      styleMap[code].sizes[sz] = (styleMap[code].sizes[sz]||0) + item.qty;
+      if(!styleMap[code].orders.includes(o.orderNum)){
+        styleMap[code].orders.push(o.orderNum);
+      }
+    });
+  });
+
+  const styles = Object.values(styleMap).sort((a,b)=>a.name.localeCompare(b.name));
+  const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const totalOrders = readyOrders.length;
+  const totalUnits = readyOrders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
+
+  let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border-left:4px solid #10B981;display:flex;justify-content:space-between;align-items:center">';
+  h += '<div><div style="font-size:14px;font-weight:600;color:#065F46">'+today+'</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' total units · '+styles.length+' styles</div></div>';
+  h += '</div>';
+
+  // Table
+  h += '<div style="overflow-x:auto">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+
+  // Header
+  h += '<thead><tr style="background:#1B2A4A;color:#F5F2ED">';
+  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;min-width:200px">Product</th>';
+  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase">Code</th>';
+  SIZES.forEach(sz=>{
+    h += '<th style="padding:10px 12px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase;min-width:44px">'+sz+'</th>';
+  });
+  h += '<th style="padding:10px 14px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase">Total</th>';
+  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase">Orders</th>';
+  h += '</tr></thead><tbody>';
+
+  styles.forEach((s,idx)=>{
+    const rowBg = idx%2===0 ? '#FFFFFF' : '#F9FAFB';
+    const total = Object.values(s.sizes).reduce((a,b)=>a+b,0);
+    h += '<tr style="border-bottom:1px solid #E5E7EB;background:'+rowBg+'">';
+
+    // Product with image
+    h += '<td style="padding:10px 14px;vertical-align:middle">';
+    h += '<div style="display:flex;align-items:center;gap:10px">';
+    if(s.image){
+      h += '<img src="'+s.image+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #E5E7EB;flex-shrink:0">';
+    } else {
+      h += '<div style="width:48px;height:48px;background:#F3F4F6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9CA3AF;flex-shrink:0">'+s.code.replace('BR25-','')+'</div>';
+    }
+    h += '<span style="font-weight:600;color:#111827">'+s.name+'</span>';
+    h += '</div></td>';
+
+    // Code
+    h += '<td style="padding:10px 14px;font-family:monospace;font-size:12px;color:#6B7280;vertical-align:middle">'+s.code+'</td>';
+
+    // Size quantities
+    SIZES.forEach(sz=>{
+      const qty = s.sizes[sz]||0;
+      if(qty>0){
+        h += '<td style="padding:10px 12px;text-align:center;vertical-align:middle">';
+        h += '<span style="background:#1B2A4A;color:#F5F2ED;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+qty+'</span>';
+        h += '</td>';
+      } else {
+        h += '<td style="padding:10px 12px;text-align:center;color:#D1D5DB;vertical-align:middle">—</td>';
+      }
+    });
+
+    // Total
+    h += '<td style="padding:10px 14px;text-align:center;vertical-align:middle">';
+    h += '<span style="background:#52B788;color:#fff;border-radius:6px;padding:3px 10px;font-weight:700;font-size:13px">'+total+'</span>';
+    h += '</td>';
+
+    // Orders
+    h += '<td style="padding:10px 14px;font-size:11px;color:#6B7280;vertical-align:middle">'+s.orders.join(', ')+'</td>';
+
+    h += '</tr>';
+  });
+
+  // Totals row
+  const sizeTotals = {};
+  SIZES.forEach(sz=>{ sizeTotals[sz]=0; });
+  styles.forEach(s=>{ SIZES.forEach(sz=>{ sizeTotals[sz]+=(s.sizes[sz]||0); }); });
+  const grandTotal = Object.values(sizeTotals).reduce((a,b)=>a+b,0);
+
+  h += '<tr style="background:#1B2A4A;color:#F5F2ED;font-weight:600">';
+  h += '<td style="padding:10px 14px" colspan="2">TOTAL</td>';
+  SIZES.forEach(sz=>{
+    const t = sizeTotals[sz];
+    h += '<td style="padding:10px 12px;text-align:center">'+(t>0?t:'—')+'</td>';
+  });
+  h += '<td style="padding:10px 14px;text-align:center">'+grandTotal+'</td>';
+  h += '<td style="padding:10px 14px"></td>';
+  h += '</tr>';
+
+  h += '</tbody></table></div>';
+
+  document.getElementById('pickerListContent').innerHTML = h;
+  document.getElementById('pickerModal').style.display = 'block';
 }
 
 function printPackingSlips(){
