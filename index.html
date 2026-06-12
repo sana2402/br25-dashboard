@@ -755,10 +755,14 @@ function parseShopify(rows){
     }
     Object.entries(orderItemMap).forEach(function(entry){
       const on=entry[0], items=entry[1];
-      if(items.some(function(i){return i.cap==='0.00'||i.cap===0||i.cap==='0';})){
-        if(!replacedSkus[on]) replacedSkus[on]={};
-        items.filter(function(i){return i.cap===''||i.cap===null||i.cap===undefined;}).forEach(function(i){replacedSkus[on][i.sku]=true;});
-      }
+      // For each replacement item (cap=0.00), mark only same-base-code items as replaced
+      items.filter(function(i){return i.cap==='0.00'||i.cap===0||i.cap==='0';}).forEach(function(repl){
+        const replBase=repl.sku.toUpperCase().replace(/-(?:XS|S|M|L|XL|2XL|3XL|XXL)$/i,'');
+        items.filter(function(i){return (i.cap===''||i.cap===null||i.cap===undefined)&&i.sku.toUpperCase().replace(/-(?:XS|S|M|L|XL|2XL|3XL|XXL)$/i,'')===replBase;}).forEach(function(i){
+          if(!replacedSkus[on]) replacedSkus[on]={};
+          replacedSkus[on][i.sku]=true;
+        });
+      });
     });
   }
 
@@ -772,12 +776,14 @@ function parseShopify(rows){
     const sku=String(row[skuCol]||'').trim();
     if(!sku) continue;
     if(replacedSkus[on]&&replacedSkus[on][sku]) continue; // skip removed items
-    // Also skip if this item has cap='' and the order has a replacement with cap='0.00' for same base code
+    // Skip if this item has cap='' AND the SAME style code has a replacement with cap='0.00'
     const thisCap=capCol!==-1?String(row[capCol]===null||row[capCol]===undefined?'':row[capCol]).trim():'x';
     if((thisCap===''||thisCap===null||thisCap===undefined)&&capCol!==-1){
-      const baseCode=sku.replace(/-[A-Z0-9XL23]+$/i,'').toUpperCase();
+      // Extract base code (e.g. BR25-06 from BR25-06-L)
+      const baseCode=sku.replace(/-(?:XS|S|M|L|XL|2XL|3XL|XXL)$/i,'').toUpperCase();
       const orderItems=orderItemMap[on]||[];
-      if(orderItems.some(i=>(i.cap==='0.00'||i.cap===0||i.cap==='0')&&i.sku.toUpperCase().startsWith(baseCode+'-'))) continue;
+      // Only skip if replacement has SAME base code (not just any replacement in the order)
+      if(orderItems.some(i=>(i.cap==='0.00'||i.cap===0||i.cap==='0')&&i.sku.toUpperCase().replace(/-(?:XS|S|M|L|XL|2XL|3XL|XXL)$/i,'')===baseCode)) continue;
     }
     const m=sku.match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
     if(!m) continue;
