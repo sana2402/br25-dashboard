@@ -719,8 +719,8 @@ function parseShopify(rows){
   // and the new item has compare_at_price='0.00' in the same order
   const capCol=headers.indexOf('lineitem compare at price');
   const replacedSkus={};
+  const orderItemMap={};
   if(capCol!==-1){
-    const orderItemMap={};
     let lOrder='';
     for(let i=hRow+1;i<rows.length;i++){
       const row=rows[i];
