@@ -799,7 +799,7 @@ function parseShopify(rows){
       // i.e. newCode-newSize exists in orderItemMap with cap='0.00' (active replacement)
       const newSkuPattern=(styleSwap.newCode+'-'+styleSwap.newSize).toUpperCase();
       const orderItems=orderItemMap[on]||[];
-      const alreadyActive=orderItems.some(i=>i.sku.toUpperCase()===newSkuPattern&&i.cap==='0.00');
+      const alreadyActive=orderItems.some(i=>i.sku.toUpperCase()===newSkuPattern&&(i.cap==='0.00'||i.cap===0||i.cap==='0'));
       if(!alreadyActive){
         const finalSize=styleSwap.newSize;
         const finalCode=styleSwap.newCode;
@@ -1732,114 +1732,114 @@ function loadFromSheets(){
 
 
 function openPickerList(){
-  // Group ready orders by style code+size
-  const styleMap = {}; // {code: {name, image, sizes: {sz: qty}, orders: []}}
-
-  readyOrders.forEach(o=>{
-    o.items.forEach(item=>{
-      const code = item.code;
-      const sz = item.finalSize;
-      if(!styleMap[code]){
-        const img = PRODUCT_IMAGES && PRODUCT_IMAGES[code];
-        styleMap[code] = {
-          code,
-          name: img ? img.name : item.itemName.split(' - ')[0],
-          image: img ? img.data : null,
-          sizes: {},
-          orders: []
-        };
-      }
-      styleMap[code].sizes[sz] = (styleMap[code].sizes[sz]||0) + item.qty;
-      if(!styleMap[code].orders.includes(o.orderNum)){
-        styleMap[code].orders.push(o.orderNum);
-      }
-    });
-  });
-
-  const styles = Object.values(styleMap).sort((a,b)=>a.name.localeCompare(b.name));
   const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   const totalOrders = readyOrders.length;
   const totalUnits = readyOrders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
 
+  // Sort orders by priority
+  const sorted = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+
+  // Group by priority level
+  const groups = {};
+  sorted.forEach(o=>{
+    const lvl = o.priority.level;
+    if(!groups[lvl]) groups[lvl]=[];
+    groups[lvl].push(o);
+  });
+
+  const priorityOrder = ['urgent','critical','high','medium','new'];
+  const priorityLabels = {
+    urgent: '🚨 Urgent',
+    critical: '🔴 Critical — 8+ days',
+    high: '🟠 High — 6-7 days',
+    medium: '🟡 Medium — 3-5 days',
+    new: '🟢 New — 1-2 days'
+  };
+  const priorityColors = {
+    urgent: '#7C3AED',
+    critical: '#991B1B',
+    high: '#C2410C',
+    medium: '#B45309',
+    new: '#166534'
+  };
+  const priorityBg = {
+    urgent: '#F5F3FF',
+    critical: '#FFF1F2',
+    high: '#FFF7ED',
+    medium: '#FFFBEB',
+    new: '#F0FDF4'
+  };
+
   let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border-left:4px solid #10B981;display:flex;justify-content:space-between;align-items:center">';
-  h += '<div><div style="font-size:14px;font-weight:600;color:#065F46">'+today+'</div>';
-  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' total units · '+styles.length+' styles</div></div>';
+  h += '<div><div style="font-size:14px;font-weight:700;color:#065F46">'+today+'</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' total units</div></div>';
+  h += '<div style="font-size:11px;color:#6B7280;text-align:right">Pick one order fully before moving to next</div>';
   h += '</div>';
 
-  // Table
-  h += '<div style="overflow-x:auto">';
-  h += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+  priorityOrder.forEach(lvl=>{
+    const orders = groups[lvl];
+    if(!orders||!orders.length) return;
 
-  // Header
-  h += '<thead><tr style="background:#1B2A4A;color:#F5F2ED">';
-  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;min-width:200px">Product</th>';
-  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase">Code</th>';
-  SIZES.forEach(sz=>{
-    h += '<th style="padding:10px 12px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase;min-width:44px">'+sz+'</th>';
-  });
-  h += '<th style="padding:10px 14px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase">Total</th>';
-  h += '<th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase">Orders</th>';
-  h += '</tr></thead><tbody>';
+    const color = priorityColors[lvl];
+    const bg = priorityBg[lvl];
+    const label = priorityLabels[lvl];
+    const grpUnits = orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
 
-  styles.forEach((s,idx)=>{
-    const rowBg = idx%2===0 ? '#FFFFFF' : '#F9FAFB';
-    const total = Object.values(s.sizes).reduce((a,b)=>a+b,0);
-    h += '<tr style="border-bottom:1px solid #E5E7EB;background:'+rowBg+'">';
+    // Priority group header
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="background:'+color+';color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div style="font-size:14px;font-weight:700">'+label+'</div>';
+    h += '<div style="font-size:12px;opacity:0.85">'+orders.length+' orders · '+grpUnits+' units</div>';
+    h += '</div>';
 
-    // Product with image
-    h += '<td style="padding:10px 14px;vertical-align:middle">';
-    h += '<div style="display:flex;align-items:center;gap:10px">';
-    if(s.image){
-      h += '<img src="'+s.image+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #E5E7EB;flex-shrink:0">';
-    } else {
-      h += '<div style="width:48px;height:48px;background:#F3F4F6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9CA3AF;flex-shrink:0">'+s.code.replace('BR25-','')+'</div>';
-    }
-    h += '<span style="font-weight:600;color:#111827">'+s.name+'</span>';
-    h += '</div></td>';
+    // Orders in this group
+    h += '<div style="border:2px solid '+color+';border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
 
-    // Code
-    h += '<td style="padding:10px 14px;font-family:monospace;font-size:12px;color:#6B7280;vertical-align:middle">'+s.code+'</td>';
+    orders.forEach((o,oidx)=>{
+      const orderUnits = o.items.reduce((s,i)=>s+i.qty,0);
+      const isLast = oidx===orders.length-1;
 
-    // Size quantities
-    SIZES.forEach(sz=>{
-      const qty = s.sizes[sz]||0;
-      if(qty>0){
-        h += '<td style="padding:10px 12px;text-align:center;vertical-align:middle">';
-        h += '<span style="background:#1B2A4A;color:#F5F2ED;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+qty+'</span>';
+      // Order header
+      h += '<div style="background:'+bg+';padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:12px">';
+      h += '<div style="background:'+color+';color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(oidx+1)+'</div>';
+      h += '<div style="flex:1">';
+      h += '<div style="font-weight:700;font-size:13px">'+o.orderNum+' — '+o.customer+'</div>';
+      h += '<div style="font-size:11px;color:#6B7280;margin-top:1px">'+o.priority.days+' days old · '+orderUnits+' unit'+(orderUnits>1?'s':'')+'</div>';
+      h += '</div>';
+      h += '<div style="font-size:11px;padding:3px 10px;background:'+color+';color:#fff;border-radius:4px;font-weight:600">Pick all '+orderUnits+'</div>';
+      h += '</div>';
+
+      // Items table
+      h += '<table style="width:100%;border-collapse:collapse">';
+      o.items.forEach((item,iidx)=>{
+        const rowBg = iidx%2===0?'#FFFFFF':'#FAFAFA';
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
+        const pName = img?img.name:item.itemName;
+        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+rowBg+'">';
+        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
+        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB">';
+        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
         h += '</td>';
-      } else {
-        h += '<td style="padding:10px 12px;text-align:center;color:#D1D5DB;vertical-align:middle">—</td>';
+        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px">'+pName+'</div>';
+        h += '<div style="font-size:11px;color:#6B7280;font-family:monospace;margin-top:1px">'+item.code+'</div></td>';
+        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600">'+item.finalSize+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center">';
+        h += '<span style="background:'+color+';color:#fff;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">'+item.qty+'</span>';
+        h += '</td>';
+        // Checkbox for picker to tick
+        h += '<td style="padding:8px 16px;text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" onclick="this.parentElement.parentElement.style.background=this.checked?'#D1FAE5':''"></td>';
+        h += '</tr>';
+      });
+      h += '</table>';
+
+      // Separator between orders (not last)
+      if(!isLast){
+        h += '<div style="height:6px;background:#E5E7EB"></div>';
       }
     });
 
-    // Total
-    h += '<td style="padding:10px 14px;text-align:center;vertical-align:middle">';
-    h += '<span style="background:#52B788;color:#fff;border-radius:6px;padding:3px 10px;font-weight:700;font-size:13px">'+total+'</span>';
-    h += '</td>';
-
-    // Orders
-    h += '<td style="padding:10px 14px;font-size:11px;color:#6B7280;vertical-align:middle">'+s.orders.join(', ')+'</td>';
-
-    h += '</tr>';
+    h += '</div></div>';
   });
-
-  // Totals row
-  const sizeTotals = {};
-  SIZES.forEach(sz=>{ sizeTotals[sz]=0; });
-  styles.forEach(s=>{ SIZES.forEach(sz=>{ sizeTotals[sz]+=(s.sizes[sz]||0); }); });
-  const grandTotal = Object.values(sizeTotals).reduce((a,b)=>a+b,0);
-
-  h += '<tr style="background:#1B2A4A;color:#F5F2ED;font-weight:600">';
-  h += '<td style="padding:10px 14px" colspan="2">TOTAL</td>';
-  SIZES.forEach(sz=>{
-    const t = sizeTotals[sz];
-    h += '<td style="padding:10px 12px;text-align:center">'+(t>0?t:'—')+'</td>';
-  });
-  h += '<td style="padding:10px 14px;text-align:center">'+grandTotal+'</td>';
-  h += '<td style="padding:10px 14px"></td>';
-  h += '</tr>';
-
-  h += '</tbody></table></div>';
 
   document.getElementById('pickerListContent').innerHTML = h;
   document.getElementById('pickerModal').style.display = 'block';
