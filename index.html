@@ -61,7 +61,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 /* BADGES */
 .pri{display:inline-block;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
-.pri.urgent{background:#7C3AED;color:#fff}.pri.critical{background:#FEE2E2;color:#991B1B}
+.pri.urgent{background:#7C3AED;color:#fff}.pri.urgent{background:#7C3AED;color:#fff}.pri.critical{background:#FEE2E2;color:#991B1B}
 .pri.high{background:var(--orange-light);color:var(--orange)}
 .pri.medium{background:var(--amber-light);color:var(--amber)}
 .pri.new{background:var(--green-light);color:var(--green)}
@@ -491,7 +491,7 @@ function getPriority(createdAt, notes){
   if(days>=3) return {level:'medium',label:'Medium',days,date:d};
   return {level:'new',label:'New',days,date:d};
 }
-function priOrder(l){return {critical:0,high:1,medium:2,new:3}[l]||4}
+function priOrder(l){return {urgent:0,critical:1,high:2,medium:3,new:4}[l]||5}
 
 // ============================================================
 // PARSE SIZE CHANGES
