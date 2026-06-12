@@ -751,6 +751,13 @@ function parseShopify(rows){
     const sku=String(row[skuCol]||'').trim();
     if(!sku) continue;
     if(replacedSkus[on]&&replacedSkus[on][sku]) continue; // skip removed items
+    // Also skip if this item has cap='' and the order has a replacement with cap='0.00' for same base code
+    const thisCap=capCol!==-1?String(row[capCol]===null||row[capCol]===undefined?'':row[capCol]).trim():'x';
+    if(thisCap===''&&capCol!==-1){
+      const baseCode=sku.replace(/-[A-Z0-9XL23]+$/i,'').toUpperCase();
+      const orderItems=orderItemMap[on]||[];
+      if(orderItems.some(i=>i.cap==='0.00'&&i.sku.toUpperCase().startsWith(baseCode+'-'))) continue;
+    }
     const m=sku.match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
     if(!m) continue;
     const code=m[1].trim().toUpperCase();
