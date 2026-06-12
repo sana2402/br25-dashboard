@@ -775,10 +775,13 @@ function parseShopify(rows){
     // Check if this item has been replaced by a style change
     const styleSwap=styleChanges.find(sc=>sc.oldCode===code&&sc.oldSize===origSize);
     if(styleSwap){
-      // Replace this item with the new style+size
-      const finalSize=styleSwap.newSize;
-      const finalCode=styleSwap.newCode;
-      items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+      // Skip if Shopify already swapped this item (replacement already in order via compare_at_price)
+      const alreadySwapped=replacedSkus[on]&&Object.keys(replacedSkus[on]).some(s=>s.toUpperCase().startsWith(styleSwap.newCode+'-'));
+      if(!alreadySwapped){
+        const finalSize=styleSwap.newSize;
+        const finalCode=styleSwap.newCode;
+        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+      }
       continue;
     }
     const finalSize=changes[code]||origSize;
