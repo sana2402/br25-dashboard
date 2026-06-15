@@ -879,9 +879,10 @@ function runDashboard(){
   }
 
   // Clone stock minus pieces currently with quality checker
-  const stockLeft={};
   window.qcDeducted={};
   const qcDeducted=window.qcDeducted;
+  window.stockLeft={};
+  const stockLeft=window.stockLeft;
   for(const code in inventory){
     stockLeft[code]={};
     qcDeducted[code]={};
@@ -1259,7 +1260,7 @@ function renderUnconfirmed(){
   h+='<strong>'+orders.length+' unconfirmed orders</strong> — These orders have not been confirmed by the customer yet. Showing what you would need if they confirm.</div>';
 
   h+='<div class="table-wrap"><table><thead><tr>';
-  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num">Would Ship?</th>';
+  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">Lying Cut</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Would Ship?</th>';
   h+='</tr></thead><tbody>';
 
   let prevOrder='';
@@ -1278,8 +1279,25 @@ function renderUnconfirmed(){
         });
       });
       const inHand=Math.max(0,rawInHand-committedQty);
-      // Also check lying cut and with vendor from pendingStitch
-      const ps=(pendingStitch[item.code]&&pendingStitch[item.code][item.size])||{lying:0,vendor:0};
+      // Get lying cut and with vendor from pendingStitch
+      const psRaw=(pendingStitch[item.code]&&pendingStitch[item.code][item.size])||{lying:0,vendor:0};
+      // Subtract what confirmed orders still need from lying/vendor
+      // stockLeft already has QC and inHand accounted for - use remaining shortfall from confirmed orders
+      let confirmedShortfall=0;
+      [...partialOrders,...blockedOrders].forEach(co=>{
+        co.items.forEach(ci=>{
+          if(ci.code===item.code&&ci.finalSize===item.size&&ci.short>0) confirmedShortfall+=ci.short;
+        });
+      });
+      // Remaining lying cut and vendor after covering confirmed shortfalls
+      const totalPending=psRaw.lying+psRaw.vendor;
+      const remainingAfterConfirmed=Math.max(0,totalPending-confirmedShortfall);
+      const vendorCoveredByConfirmed=Math.min(psRaw.vendor,confirmedShortfall);
+      const lyingCoveredByConfirmed=Math.min(psRaw.lying,Math.max(0,confirmedShortfall-vendorCoveredByConfirmed));
+      const ps={
+        lying:Math.max(0,psRaw.lying-lyingCoveredByConfirmed),
+        vendor:Math.max(0,psRaw.vendor-vendorCoveredByConfirmed)
+      };
       const canShip=Math.min(inHand,item.qty);
       const short=item.qty-canShip;
       const needsCut=short>0&&ps.lying===0&&ps.vendor===0;
@@ -1301,6 +1319,8 @@ function renderUnconfirmed(){
       h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:1px 7px;font-size:11px;font-weight:600">'+item.size+'</span></td>';
       h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle">'+item.qty+'</td>';
       h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle;color:'+(inHand>0?'var(--green)':'var(--red)')+';font-weight:500">'+inHand+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle">'+(ps.lying>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+ps.lying+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle">'+(ps.vendor>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+ps.vendor+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       if(short===0){
         h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--green-light);color:var(--green);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✓ Ready</span></td>';
       } else if(canShip>0){
@@ -1324,157 +1344,187 @@ function renderUnconfirmed(){
 function renderPlanning(){
   const wrap = document.getElementById('planningTable');
   if(!wrap) return;
-  if(!productionNeeds||productionNeeds.length===0){
-    wrap.innerHTML='<div class="empty" style="padding:40px;text-align:center;color:var(--ink-muted)">No production required.</div>';
+
+  // Build confirmed production map (from productionNeeds)
+  const confirmedMap = {}; // {code|size: {totalShort, committed, withQC, lying, vendor, orders, name, code, size}}
+  productionNeeds.forEach(p=>{
+    const key = p.code+'|'+p.size;
+    confirmedMap[key] = p;
+  });
+
+  // Build unconfirmed production map
+  const unconfirmedMap = {}; // {code|size: {qty, orders[]}}
+  const unconfirmedList = Object.values(window._unconfirmedOrders||{});
+  unconfirmedList.forEach(o=>{
+    o.items.forEach(item=>{
+      const key = item.code+'|'+item.size;
+      if(!unconfirmedMap[key]) unconfirmedMap[key]={qty:0,orders:[]};
+      unconfirmedMap[key].qty += item.qty;
+      unconfirmedMap[key].orders.push(o.orderNum);
+    });
+  });
+
+  // Build unified table rows
+  // Start with confirmed styles (sorted by oldest order)
+  const rows = [];
+  const seen = new Set();
+
+  // Helper: get oldest order days for a code+size from partial/blocked orders
+  function getWaitingOrders(code, size, inclUnconfirmed){
+    const waiting = [];
+    // Confirmed waiting orders (partial/blocked)
+    [...partialOrders,...blockedOrders].forEach(o=>{
+      if(o.items.some(i=>i.code===code&&i.finalSize===size&&i.short>0)){
+        waiting.push({num:o.orderNum, days:o.priority.days, confirmed:true});
+      }
+    });
+    if(inclUnconfirmed){
+      const uk = unconfirmedMap[code+'|'+size];
+      if(uk) uk.orders.forEach(n=>waiting.push({num:n, days:0, confirmed:false}));
+    }
+    return waiting;
+  }
+
+  // Confirmed styles first
+  productionNeeds.forEach(p=>{
+    const key = p.code+'|'+p.size;
+    seen.add(key);
+    const uk = unconfirmedMap[key];
+    const unconfExtra = uk ? uk.qty : 0;
+    const potentialShort = p.totalShort + unconfExtra;
+    const waiting = getWaitingOrders(p.code, p.size, true);
+    const oldestDays = waiting.filter(w=>w.confirmed).reduce((m,w)=>Math.max(m,w.days),0);
+    rows.push({
+      code:p.code, size:p.size, name:p.name,
+      short:p.totalShort, committed:p.committed||p.totalShort,
+      potentialShort, unconfExtra,
+      withQC:p.withQC||0, lying:p.lying, vendor:p.vendor,
+      waiting, oldestDays,
+      confirmedOnly: false
+    });
+  });
+
+  // Unconfirmed-only styles (not in confirmed)
+  Object.keys(unconfirmedMap).forEach(key=>{
+    if(seen.has(key)) return;
+    const [code,size] = key.split('|');
+    const uk = unconfirmedMap[key];
+    const ps = (pendingStitch[code]&&pendingStitch[code][size])||{lying:0,vendor:0};
+    const inv = inventory[code]?inventory[code].sizes[size]||0:0;
+    const stockLeft2 = (window.stockLeft&&window.stockLeft[code])?window.stockLeft[code][size]||0:inv;
+    const name = PRODUCT_IMAGES&&PRODUCT_IMAGES[code]?PRODUCT_IMAGES[code].name:(inventory[code]?inventory[code].name:code);
+    const waiting = uk.orders.map(n=>({num:n,days:0,confirmed:false}));
+    rows.push({
+      code, size, name,
+      short:0, committed:0, potentialShort:uk.qty, unconfExtra:uk.qty,
+      withQC:0, lying:ps.lying, vendor:ps.vendor,
+      waiting, oldestDays:0,
+      confirmedOnly:true
+    });
+  });
+
+  // Sort: confirmed first (by oldest days desc), then unconfirmed-only
+  rows.sort((a,b)=>{
+    if(a.confirmedOnly !== b.confirmedOnly) return a.confirmedOnly?1:-1;
+    return b.oldestDays - a.oldestDays;
+  });
+
+  if(!rows.length){
+    wrap.innerHTML='<div class="empty">No production planning data. Generate the dashboard first.</div>';
     return;
   }
 
-  // Build order age map: for each code+size shortfall, find oldest waiting order
-  const shortfallOrders={};
-  [...partialOrders,...blockedOrders].forEach(o=>{
-    o.items.forEach(item=>{
-      if(item.short<=0) return;
-      const key=item.code+'|'+item.finalSize;
-      if(!shortfallOrders[key]) shortfallOrders[key]={orders:[],oldestDays:0,oldestPri:'new'};
-      shortfallOrders[key].orders.push({orderNum:o.orderNum,customer:o.customer,priority:o.priority,short:item.short});
-      if(o.priority.days>shortfallOrders[key].oldestDays){
-        shortfallOrders[key].oldestDays=o.priority.days;
-        shortfallOrders[key].oldestPri=o.priority.level;
-      }
-    });
+  // Render unified table
+  let h = '<div class="sec-title">📋 Production Planning <span class="stcount">'+rows.length+' styles</span></div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-bottom:12px">Confirmed orders sorted by urgency. Unconfirmed-only styles shown at bottom.</div>';
+  h += '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr>';
+  h += '<th style="padding:9px 12px;text-align:left;min-width:180px">Product</th>';
+  h += '<th style="padding:9px 12px;text-align:center">Code</th>';
+  h += '<th style="padding:9px 12px;text-align:center">Size</th>';
+  h += '<th style="padding:9px 12px;text-align:center;color:#EF4444">Short</th>';
+  h += '<th style="padding:9px 12px;text-align:center;color:#7C3AED">Potential Short</th>';
+  h += '<th style="padding:9px 12px;text-align:center;color:#D97706">Lying Cut</th>';
+  h += '<th style="padding:9px 12px;text-align:center;color:#3B82F6">With Vendor</th>';
+  h += '<th style="padding:9px 12px;text-align:center">Action</th>';
+  h += '<th style="padding:9px 12px;text-align:left">Waiting Orders</th>';
+  h += '</tr></thead><tbody>';
+
+  rows.forEach((r,ri)=>{
+    const rowBg = r.confirmedOnly ? '#FAFAFA' : (ri%2===0?'#FFFFFF':'#F9FAFB');
+    const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[r.code];
+    h += '<tr style="border-bottom:1px solid #F0EDE8;background:'+rowBg+'">';
+
+    // Product
+    h += '<td style="padding:9px 12px;vertical-align:middle"><div style="display:flex;align-items:center;gap:8px">';
+    if(img) h += '<img src="'+img.data+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0">';
+    h += '<span style="font-weight:500;color:'+(r.confirmedOnly?'#9CA3AF':'#111827')+'">'+r.name+'</span></div></td>';
+
+    // Code
+    h += '<td style="padding:9px 12px;text-align:center;font-family:monospace;font-size:11px;color:#6B7280"><a href="#" onclick="filterProductionByCode(''+r.code+'');return false;" style="color:#1D4ED8;text-decoration:none">'+r.code+'</a></td>';
+
+    // Size
+    h += '<td style="padding:9px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:600">'+r.size+'</span></td>';
+
+    // Short
+    h += '<td style="padding:9px 12px;text-align:center">';
+    if(r.short>0) h += '<strong style="color:#EF4444;font-size:14px">'+r.short+'</strong>';
+    else h += '<span style="color:#BBBBBB">—</span>';
+    h += '</td>';
+
+    // Potential Short
+    h += '<td style="padding:9px 12px;text-align:center">';
+    if(r.potentialShort>0){
+      h += '<strong style="color:#7C3AED;font-size:14px">'+r.potentialShort+'</strong>';
+      if(r.unconfExtra>0) h += '<span style="font-size:10px;color:#7C3AED;display:block">(+'+r.unconfExtra+' unconf)</span>';
+    } else {
+      h += '<span style="color:#BBBBBB">—</span>';
+    }
+    h += '</td>';
+
+    // Lying Cut
+    h += '<td style="padding:9px 12px;text-align:center">';
+    h += r.lying>0?'<span style="color:#D97706;font-weight:600">'+r.lying+'</span>':'<span style="color:#BBBBBB">—</span>';
+    h += '</td>';
+
+    // With Vendor
+    h += '<td style="padding:9px 12px;text-align:center">';
+    h += r.vendor>0?'<span style="color:#3B82F6;font-weight:600">'+r.vendor+'</span>':'<span style="color:#BBBBBB">—</span>';
+    h += '</td>';
+
+    // Action
+    const action = r.vendor>=r.potentialShort&&r.vendor>0?
+      '<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
+      r.lying>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">🧵 Send to Vendor</span>':
+      r.vendor>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
+      r.potentialShort>0?'<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✂️ Cut First</span>':
+      '<span style="color:#BBBBBB">—</span>';
+    h += '<td style="padding:9px 12px;text-align:center">'+action+'</td>';
+
+    // Waiting Orders
+    h += '<td style="padding:9px 12px;vertical-align:middle">';
+    const confirmed = r.waiting.filter(w=>w.confirmed);
+    const unconf = r.waiting.filter(w=>!w.confirmed);
+    const show3 = confirmed.slice(0,3);
+    const rest = confirmed.slice(3);
+    show3.forEach(w=>{ h += '<span style="font-size:11px;color:#374151;white-space:nowrap">'+w.num+' <span style="color:#9CA3AF">('+w.days+'d)</span></span>, '; });
+    if(rest.length){
+      h += '<a href="#" onclick="var els=this.parentElement.querySelectorAll(\'.ro'+ri+'\');els.forEach(function(e){e.style.display=e.style.display===\'none\'?\'inline\':\'none\'});return false;" style="font-size:11px;color:#1D4ED8">+'+rest.length+' more</a>';
+      rest.forEach(w=>{ h += '<span class=\'ro'+ri+'\' style="display:none;font-size:11px;color:#374151;white-space:nowrap"> '+w.num+' <span style="color:#9CA3AF">('+w.days+'d)</span></span>'; });
+    }
+    if(unconf.length){
+      h += '<div style="margin-top:3px">';
+      unconf.slice(0,3).forEach(w=>{ h += '<span style="font-size:10px;color:#7C3AED;white-space:nowrap">'+w.num+'</span> '; });
+      if(unconf.length>3) h += '<span style="font-size:10px;color:#7C3AED">+'+( unconf.length-3)+' unconf</span>';
+      h += '</div>';
+    }
+    h += '</td>';
+    h += '</tr>';
   });
 
-  // Group production needs by style code
-  const byStyle={};
-  productionNeeds.forEach(p=>{
-    if(!byStyle[p.code]) byStyle[p.code]={code:p.code,name:p.name,sizes:[],totalShort:0,hasLyingCut:false,needsCutting:false};
-    const sf=shortfallOrders[p.code+'|'+p.size]||{orders:[],oldestDays:0,oldestPri:'new'};
-    byStyle[p.code].sizes.push({...p,oldestDays:sf.oldestDays,oldestPri:sf.oldestPri,orders:sf.orders});
-    byStyle[p.code].totalShort+=p.totalShort;
-    if(p.lying>0) byStyle[p.code].hasLyingCut=true;
-    if(p.lying===0&&p.vendor===0&&p.hand===0) byStyle[p.code].needsCutting=true;
-  });
-
-  // ---- LIST 1: By oldest order (priority-driven) ----
-  // Sort styles by oldest waiting order
-  const byPriority=Object.values(byStyle).sort((a,b)=>{
-    const aDays=Math.max(...a.sizes.map(s=>s.oldestDays));
-    const bDays=Math.max(...b.sizes.map(s=>s.oldestDays));
-    return bDays-aDays; // oldest first
-  });
-
-  // ---- LIST 2: By quickest to produce ----
-  // First: lying cut (just send to vendor), then needs cutting
-  const lyingCutStyles=Object.values(byStyle).filter(s=>s.hasLyingCut);
-  const needsCuttingStyles=Object.values(byStyle).filter(s=>s.needsCutting&&!s.hasLyingCut);
-  const otherStyles=Object.values(byStyle).filter(s=>!s.hasLyingCut&&!s.needsCutting);
-
-  function styleCard(s, showPriority){
-    const maxDays=Math.max(...s.sizes.map(x=>x.oldestDays));
-    const priLevel=maxDays>=8?'critical':maxDays>=6?'high':maxDays>=3?'medium':'new';
-    const priC={critical:['#FEE2E2','#991B1B'],high:['#FFEDD5','#9A3412'],medium:['#FEF3C7','#92400E'],new:['#D1FAE5','#065F46']};
-    const [pbg,ptc]=priC[priLevel];
-
-    let h='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">';
-    // Style header
-    h+='<div style="background:#1B2A4A;color:#F5F2ED;padding:10px 16px;display:flex;align-items:center;gap:10px">';
-    const img=PRODUCT_IMAGES&&PRODUCT_IMAGES[s.code];
-    if(img) h+='<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:5px;border:1px solid #2D3F5A">';
-    h+='<div style="flex:1"><div style="font-size:13px;font-weight:600">'+s.name+'</div><div style="font-size:11px;color:#9A9288;margin-top:1px">'+s.code+' · '+s.totalShort+' units short</div></div>';
-    if(showPriority) h+='<span style="background:'+pbg+';color:'+ptc+';border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700">Oldest: '+maxDays+' days</span>';
-    h+='</div>';
-
-    // Sizes table
-    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    h+='<thead><tr style="background:#F8F6F3;border-bottom:1px solid var(--border)">';
-    h+='<th style="padding:7px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Size</th>';
-    h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Short</th>';
-    h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#7C3AED">Potential Short</th>';
-    h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#D97706">Lying Cut</th>';
-    h+='<th style="padding:7px 12px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#3B82F6">With Vendor</th>';
-    h+='<th style="padding:7px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Action</th>';
-    if(showPriority) h+='<th style="padding:7px 12px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted)">Waiting Orders</th>';
-    h+='</tr></thead><tbody>';
-
-    // Sort sizes: lying cut first, then needs cutting
-    const sortedSizes=[...s.sizes].sort((a,b)=>{
-      if(a.lying>0&&b.lying===0) return -1;
-      if(b.lying>0&&a.lying===0) return 1;
-      return b.totalShort-a.totalShort;
-    });
-
-    sortedSizes.forEach(sz=>{
-      // If vendor pieces already cover the shortfall, follow up vendor first
-      // Otherwise if lying cut available, send to vendor
-      const action=sz.vendor>=sz.totalShort?
-        '<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up Vendor</span>':
-        sz.lying>0?
-        '<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">🧵 Send to Vendor</span>':
-        sz.vendor>0?
-        '<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up Vendor</span>':
-        '<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✂️ Cut First</span>';
-
-      h+='<tr style="border-bottom:0.5px solid #F0EDE8">';
-      h+='<td style="padding:7px 12px"><span style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:2px 8px;font-size:11px;font-weight:600">'+sz.size+'</span></td>';
-      h+='<td style="padding:7px 12px;text-align:center"><strong style="color:#EF4444">'+sz.totalShort+'</strong></td>';
-      const potShort=sz.potentialShort||sz.totalShort;
-      const extraUnconf=sz.unconfirmedExtra||0;
-      h+='<td style="padding:7px 12px;text-align:center">';
-      if(extraUnconf>0){
-        h+='<strong style="color:#7C3AED">'+potShort+'</strong><span style="font-size:10px;color:#7C3AED;margin-left:3px">(+'+extraUnconf+')</span>';
-      } else {
-        h+='<span style="color:#BBBBBB">—</span>';
-      }
-      h+='</td>';
-      h+='<td style="padding:7px 12px;text-align:center;color:'+(sz.lying>0?'#D97706':'#BBBBBB')+'">'+sz.lying+'</td>';
-      h+='<td style="padding:7px 12px;text-align:center;color:'+(sz.vendor>0?'#3B82F6':'#BBBBBB')+'">'+sz.vendor+'</td>';
-      h+='<td style="padding:7px 12px">'+action+'</td>';
-      if(showPriority){
-        const ords=sz.orders||[];
-        const ordText=ords.slice(0,3).map(o=>'<span style="font-size:10px;color:var(--ink-muted)">'+o.orderNum+' ('+o.priority.days+'d)</span>').join(', ');
-        h+='<td style="padding:7px 12px">'+ordText+(ords.length>3?' +'+( ords.length-3)+' more':'')+'</td>';
-      }
-      h+='</tr>';
-    });
-    h+='</tbody></table></div></div>';
-    return h;
-  }
-
-  let html='';
-
-  // LIST 1: Priority driven
-  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px">';
-
-  // Left column: Priority order
-  html+='<div>';
-  html+='<div style="font-size:15px;font-weight:700;margin-bottom:4px;color:#991B1B">📌 List 1 — By Order Priority</div>';
-  html+='<div style="font-size:11px;color:var(--ink-muted);margin-bottom:14px">Produce these first — styles with the oldest waiting orders at the top</div>';
-  byPriority.forEach(s=>{ html+=styleCard(s, true); });
-  html+='</div>';
-
-  // Right column: Quickest to produce
-  html+='<div>';
-  html+='<div style="font-size:15px;font-weight:700;margin-bottom:4px;color:#1A6B5A">⚡ List 2 — By Quickest to Produce</div>';
-  html+='<div style="font-size:11px;color:var(--ink-muted);margin-bottom:14px">Start here for fastest dispatch — sizes already cut can go to vendor immediately</div>';
-
-  if(lyingCutStyles.length>0){
-    html+='<div style="font-size:12px;font-weight:600;color:#D97706;margin-bottom:8px;padding:6px 10px;background:#FEF3C7;border-radius:6px">🧵 Step 1 — Send to Vendor Now ('+lyingCutStyles.length+' styles already cut)</div>';
-    lyingCutStyles.forEach(s=>{ html+=styleCard(s, false); });
-  }
-  if(needsCuttingStyles.length>0){
-    html+='<div style="font-size:12px;font-weight:600;color:#991B1B;margin-bottom:8px;margin-top:12px;padding:6px 10px;background:#FEE2E2;border-radius:6px">✂️ Step 2 — Cut These First ('+needsCuttingStyles.length+' styles)</div>';
-    needsCuttingStyles.forEach(s=>{ html+=styleCard(s, false); });
-  }
-  if(otherStyles.length>0){
-    html+='<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;margin-top:12px;padding:6px 10px;background:#F2F2F2;border-radius:6px">📋 Other ('+otherStyles.length+' styles)</div>';
-    otherStyles.forEach(s=>{ html+=styleCard(s, false); });
-  }
-  html+='</div>';
-  html+='</div>'; // end grid
-
-  wrap.innerHTML=html;
+  h += '</tbody></table></div>';
+  wrap.innerHTML = h;
 }
-
 
 function renderScheduled(){
   const wrap=document.getElementById('scheduledTable');
@@ -1598,6 +1648,13 @@ function openDispatchModal(){
   document.getElementById('dispatchSummaryTable').innerHTML = h;
   document.getElementById('dispatchSummaryTotal').innerHTML = '📦 ' + orders.length + ' orders selected · ' + totalUnits + ' total units to deduct from inventory';
   document.getElementById('dispatchStatus').innerHTML = '';
+  // Reset button state
+  const btn = document.getElementById('confirmDispatchBtn');
+  if(btn){
+    btn.textContent = '✓ Confirm & Update Inventory';
+    btn.disabled = false;
+    btn.style.background = '#1A6B5A';
+  }
   document.getElementById('dispatchModal').style.display = 'block';
 }
 
@@ -1608,6 +1665,15 @@ function updateDispatchQty(input){
 
 function closeDispatchModal(){
   document.getElementById('dispatchModal').style.display = 'none';
+  // Reset button for next use
+  const btn = document.getElementById('confirmDispatchBtn');
+  if(btn){
+    btn.textContent = '✓ Confirm & Update Inventory';
+    btn.disabled = false;
+    btn.style.background = '#1A6B5A';
+  }
+  document.getElementById('dispatchStatus').innerHTML = '';
+  dispatchEditQtys = {};
 }
 
 function confirmDispatch(){
