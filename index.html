@@ -124,9 +124,15 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 .legend span{display:flex;align-items:center;gap:5px}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 
+/* INVENTORY STICKY HEADER */
+.inv-wrap{background:var(--surface);border-radius:10px;overflow:auto;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:24px;max-height:75vh}
+.inv-wrap thead th{position:sticky;top:0;z-index:10;background:var(--surface);box-shadow:0 1px 0 var(--border)}
+
 @media print{
+  body *{visibility:hidden}
+  #tab-packing,#tab-packing *{visibility:visible}
+  #tab-packing{position:fixed;top:0;left:0;width:100%;padding:16px}
   .header,.tabs,.upload-bar,.filter-bar,.btn,.btn-row{display:none!important}
-  .tab-content{display:block!important}
   .slip{break-inside:avoid}
   .table-wrap{box-shadow:none;border:1px solid #ccc}
 }
@@ -148,6 +154,8 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <div class="tab" onclick="switchTab('packing')">🖨 Packing Slips</div>
   <div class="tab" onclick="switchTab('unconfirmed')" style="border-left:1px solid #2D3F5A">⏳ Unconfirmed</div>
   <div class="tab" onclick="switchTab('planning')">📋 Production Planning</div>
+  <div class="tab" onclick="switchTab('inoffice')" style="border-left:1px solid #2D3F5A">🏠 In Office</div>
+  <div class="tab" onclick="switchTab('aichat')">🤖 AI Assistant</div>
 </div>
 
 <div class="main">
@@ -210,6 +218,10 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
       <select id="fChanged" onchange="renderOrders()">
         <option value="">All</option><option value="yes">Changed Only</option>
       </select>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:5px 12px;font-size:12px">
+        <input type="checkbox" id="fReadyItemsOnly" onchange="renderOrders()" style="cursor:pointer;width:14px;height:14px">
+        ✅ Ready items only (in partial orders)
+      </label>
     </div>
     <div id="ordersTable"></div>
   </div>
@@ -237,7 +249,7 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
         <option value="">All</option><option value="critical">Critical</option>
         <option value="high">High</option><option value="medium">Medium</option><option value="new">New</option>
       </select>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:5px 12px;font-size:12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:5px 12px;font-size:12px;display:none">
         <input type="checkbox" id="filterQCHold" onchange="renderDispatch()" style="cursor:pointer;width:14px;height:14px">
         🟡 QC Hold only
       </label>
@@ -259,8 +271,62 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
     <div id="planningTable"></div>
   </div>
 
+  <!-- IN OFFICE TAB -->
+  <div class="tab-content" id="tab-inoffice">
+    <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Style Code</div>
+        <input id="officeCode" placeholder="e.g. BR25-06" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);width:130px;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Size</div>
+        <select id="officeSize" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);font-family:inherit">
+          <option value="">Select</option>
+          <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Qty</div>
+        <input id="officeQty" type="number" min="1" value="1" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);width:70px;font-family:inherit">
+      </div>
+      <button onclick="addOfficeEntry()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">+ Add</button>
+      <button onclick="clearOffice()" style="background:#F3F4F6;border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">Clear All</button>
+    </div>
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;background:var(--blue-light);border-radius:6px;padding:8px 12px">
+      ℹ️ Pieces manually tracked as "In Office" — these show as an extra column in Dispatch and Orders tabs to prevent double-allocation.
+    </div>
+    <div id="officeTable"></div>
+  </div>
 
-</div>
+  <!-- AI ASSISTANT TAB -->
+  <div class="tab-content" id="tab-aichat">
+    <div style="max-width:800px;margin:0 auto">
+      <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)">
+        <div style="background:var(--navy);color:#F5F2ED;padding:14px 20px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">🤖</span>
+          <div>
+            <div style="font-size:14px;font-weight:600">BR25 Operations Assistant</div>
+            <div style="font-size:10px;color:#9A9288;margin-top:1px">Ask anything about orders, inventory, or production status</div>
+          </div>
+        </div>
+        <div id="aiMessages" style="height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div class="ai-msg ai-assistant" style="background:#F0FAF4;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;max-width:90%;border-left:3px solid var(--green-mid)">
+            Hi! I'm your BR25 operations assistant. Generate the dashboard first, then ask me things like:<br>
+            • "Which orders are ready to ship?"<br>
+            • "How much stock is left for BR25-06 in M?"<br>
+            • "What are the critical priority orders?"<br>
+            • "Which styles need urgent production?"
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:10px">
+          <input id="aiInput" placeholder="Ask about orders, inventory, dispatch..." onkeydown="if(event.key==='Enter')sendAIMessage()" style="flex:1;background:#F8F6F3;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;font-family:inherit;outline:none">
+          <button onclick="sendAIMessage()" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap">Send ↵</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .main -->
 
 <!-- PICKER LIST MODAL -->
 <div id="pickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;overflow:auto;padding:20px">
@@ -428,7 +494,7 @@ function normalizeSize(s){
 // ============================================================
 // TAB
 // ============================================================
-const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning'];
+const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','inoffice','aichat'];
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TAB_NAMES[i]===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -440,23 +506,31 @@ function switchTab(tab){
 // ============================================================
 function loadFile(type, input){
   const file = input.files[0]; if(!file) return;
+  // Reset input so same file can be re-selected and triggers change event again
   const reader = new FileReader();
   reader.onload = e => {
-    const wb = XLSX.read(e.target.result,{type:'array'});
-    if(type==='shopify'){
-      const sn = wb.SheetNames.find(n=>n.toLowerCase().includes('order'))||wb.SheetNames[0];
-      shopifyRaw = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
-      setLoaded('ucShopify','s1',file.name);
-    } else if(type==='tracker'){
-      trackerWB = wb;
-      setLoaded('ucTracker','s2',file.name);
-    } else {
-      // ERP — read Western tab for images
-      const sn = wb.SheetNames.find(n=>n.toLowerCase().includes('western'))||wb.SheetNames[0];
-      erpRaw = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
-      setLoaded('ucERP','s3',file.name+' (images updated)');
+    try {
+      const wb = XLSX.read(e.target.result,{type:'array'});
+      if(type==='shopify'){
+        const sn = wb.SheetNames.find(n=>n.toLowerCase().includes('order'))||wb.SheetNames[0];
+        shopifyRaw = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+        setLoaded('ucShopify','s1',file.name);
+      } else if(type==='tracker'){
+        trackerWB = wb;
+        setLoaded('ucTracker','s2',file.name);
+      } else {
+        // ERP — read Western tab for images
+        const sn = wb.SheetNames.find(n=>n.toLowerCase().includes('western'))||wb.SheetNames[0];
+        erpRaw = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+        setLoaded('ucERP','s3',file.name+' (images updated)');
+      }
+    } catch(err) {
+      alert('Error reading file: ' + file.name + '\n' + err.message);
     }
+    // Reset so same file can be re-selected
+    input.value = '';
   };
+  reader.onerror = () => { alert('Failed to read file: ' + file.name); input.value = ''; };
   reader.readAsArrayBuffer(file);
 }
 function setLoaded(cardId,statusId,name){
@@ -837,6 +911,12 @@ function runDashboard(){
   window._unconfirmedOrders={};
   if(!shopifyRaw||!trackerWB){alert('Please upload Shopify export and Production Tracker.');return;}
 
+  // Visual feedback
+  const btn = document.querySelector('.btn.green');
+  if(btn){ btn.textContent='⏳ Generating...'; btn.disabled=true; }
+
+  try {
+
   // Parse inventory
   const invSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('final inventory'))||trackerWB.SheetNames[0];
   const pendSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('pending'))||trackerWB.SheetNames[1];
@@ -908,7 +988,7 @@ function runDashboard(){
     return priOrder(orderGroups[a][0].priority.level)-priOrder(orderGroups[b][0].priority.level);
   });
 
-  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[]; window.qcDeducted={};
+  readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[];
 
   sorted.forEach(on=>{
     const items=orderGroups[on];
@@ -927,7 +1007,11 @@ function runDashboard(){
     if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
-    } else if(status==='partial') partialOrders.push(obj);
+    } else if(status==='partial'){
+      // Also deduct stock for what CAN be sent in partial orders to prevent double-allocation
+      results.forEach(item=>{ if(stockLeft[item.code]&&item.canSend>0) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
+      partialOrders.push(obj);
+    }
     else blockedOrders.push(obj);
   });
 
@@ -993,6 +1077,13 @@ function runDashboard(){
 
   window.scheduledOrders=scheduledOrders;
   renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking(); renderUnconfirmed(); renderPlanning();
+  renderOfficeTable();
+  if(btn){ btn.textContent='▶ Generate'; btn.disabled=false; }
+  } catch(err) {
+    console.error('Dashboard error:', err);
+    alert('Error generating dashboard: ' + err.message + '\n\nCheck console for details.');
+    if(btn){ btn.textContent='▶ Generate'; btn.disabled=false; }
+  }
 }
 
 // ============================================================
@@ -1039,6 +1130,7 @@ function renderOrders(){
   const sf=document.getElementById('fStatus').value;
   const pf=document.getElementById('fPri').value;
   const cf=document.getElementById('fChanged').value;
+  const readyOnly=document.getElementById('fReadyItemsOnly')&&document.getElementById('fReadyItemsOnly').checked;
   let all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
@@ -1046,15 +1138,18 @@ function renderOrders(){
   let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Short</th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
-    o.items.forEach((item,idx)=>{
+    // If readyOnly filter is on, for partial orders show only items that can be sent
+    const visibleItems = readyOnly && o.status==='partial' ? o.items.filter(i=>i.canSend>0&&i.short===0) : o.items;
+    if(readyOnly && o.status==='partial' && visibleItems.length===0) return; // skip order entirely if no ready items
+    visibleItems.forEach((item,idx)=>{
       const isFirst=o.orderNum!==prev; prev=o.orderNum;
       const fg=item.short>0?'var(--red)':'var(--green)';
       h+='<tr'+(isFirst?' class="order-sep"':'')+' style="background:'+(item.sizeChanged?'#FFF8FF':'')+'">';
       if(isFirst){
-        h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong></td>';
-        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'</td>';
-        h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
-        h+='<td rowspan="'+o.items.length+'">'+statusBadge(o.status)+'</td>';
+        h+='<td rowspan="'+visibleItems.length+'"><strong>'+o.orderNum+'</strong></td>';
+        h+='<td rowspan="'+visibleItems.length+'" style="font-size:11px">'+o.customer+'</td>';
+        h+='<td rowspan="'+visibleItems.length+'">'+priBadge(o.priority)+'</td>';
+        h+='<td rowspan="'+visibleItems.length+'">'+statusBadge(o.status)+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
@@ -1079,7 +1174,7 @@ function renderOrders(){
 // ============================================================
 function renderInventory(){
   let h='<div class="sec-title">Stock Position <span class="stcount">'+Object.keys(inventory).length+' styles</span></div>';
-  h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th>';
+  h+='<div class="inv-wrap"><table><thead><tr><th>Product</th><th>Code</th>';
   SIZES.forEach(sz=>h+='<th class="num" colspan="3">'+sz+'</th>');
   h+='<th class="num">Total</th></tr><tr><th></th><th></th>';
   SIZES.forEach(()=>h+='<th class="num" style="font-size:9px;color:var(--green-mid)">Hand</th><th class="num" style="font-size:9px;color:var(--yellow)">Cut</th><th class="num" style="font-size:9px;color:#60A5FA">Vendor</th>');
@@ -1099,9 +1194,6 @@ function renderInventory(){
   h+='</tbody></table></div>';
   document.getElementById('inventoryTable').innerHTML=h;
 }
-
-// ============================================================
-// PRODUCTION
 // ============================================================
 function renderProduction(){
   const needsCut=productionNeeds.filter(p=>p.hand===0&&p.lying===0&&p.vendor===0);
@@ -1493,12 +1585,15 @@ function renderPlanning(){
     h += '</td>';
 
     // Action
-    const action = r.vendor>=r.potentialShort&&r.vendor>0?
+    const action = r.short===0&&r.potentialShort===0?
+      '<span style="color:#BBBBBB">—</span>':
+      r.short===0?
+      '<span style="background:#F3F4F6;color:#6B7280;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">👀 Watch</span>':
+      r.vendor>=r.short&&r.vendor>0?
       '<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
       r.lying>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">🧵 Send to Vendor</span>':
       r.vendor>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
-      r.potentialShort>0?'<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✂️ Cut First</span>':
-      '<span style="color:#BBBBBB">—</span>';
+      '<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✂️ Cut First</span>';
     h += '<td style="padding:9px 12px;text-align:center">'+action+'</td>';
 
     // Waiting Orders
@@ -1929,6 +2024,180 @@ function printPackingSlips(){
   switchTab('packing');
   setTimeout(()=>window.print(),300);
 }
+
+// ============================================================
+// IN OFFICE
+// ============================================================
+window.officeInventory = {}; // {code: {size: qty}}
+
+function addOfficeEntry(){
+  const code = document.getElementById('officeCode').value.trim().toUpperCase();
+  const size = document.getElementById('officeSize').value;
+  const qty = parseInt(document.getElementById('officeQty').value)||1;
+  if(!code||!size){alert('Please enter a style code and size.');return;}
+  if(!window.officeInventory[code]) window.officeInventory[code]={};
+  window.officeInventory[code][size]=(window.officeInventory[code][size]||0)+qty;
+  document.getElementById('officeCode').value='';
+  document.getElementById('officeSize').value='';
+  document.getElementById('officeQty').value='1';
+  renderOfficeTable();
+  // Re-render dispatch and orders to show in-office column
+  if(readyOrders.length||partialOrders.length) {renderDispatch();renderOrders();}
+}
+
+function removeOfficeEntry(code,size){
+  if(window.officeInventory[code]) delete window.officeInventory[code][size];
+  if(window.officeInventory[code]&&Object.keys(window.officeInventory[code]).length===0) delete window.officeInventory[code];
+  renderOfficeTable();
+  if(readyOrders.length||partialOrders.length) {renderDispatch();renderOrders();}
+}
+
+function clearOffice(){
+  window.officeInventory={};
+  renderOfficeTable();
+}
+
+function getOfficeQty(code,size){
+  return (window.officeInventory[code]&&window.officeInventory[code][size])||0;
+}
+
+function renderOfficeTable(){
+  const wrap=document.getElementById('officeTable');
+  if(!wrap) return;
+  const entries=[];
+  Object.entries(window.officeInventory||{}).forEach(([code,sizes])=>{
+    Object.entries(sizes).forEach(([size,qty])=>{ if(qty>0) entries.push({code,size,qty}); });
+  });
+  if(!entries.length){
+    wrap.innerHTML='<div class="empty" style="padding:32px">No pieces logged in office yet. Add them above.</div>';
+    return;
+  }
+  let h='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty in Office</th><th></th></tr></thead><tbody>';
+  entries.forEach(e=>{
+    h+='<tr>';
+    h+='<td><div class="prod-cell">'+imgTag(e.code)+'<span class="prod-name">'+prodName(e.code,e.code)+'</span></div></td>';
+    h+='<td class="code">'+e.code+'</td>';
+    h+='<td class="num"><span class="size-badge">'+e.size+'</span></td>';
+    h+='<td class="num"><strong style="color:var(--green)">'+e.qty+'</strong></td>';
+    h+='<td><button onclick="removeOfficeEntry(\''+e.code+'\',\''+e.size+'\')" style="background:var(--red-light);color:var(--red);border:1px solid var(--red-mid);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit">Remove</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  wrap.innerHTML=h;
+}
+
+// ============================================================
+// AI CHAT ASSISTANT
+// ============================================================
+function buildDashboardContext(){
+  const ctx=[];
+  ctx.push('=== BR25 OPERATIONS DASHBOARD CONTEXT ===');
+  ctx.push('Total orders: '+([...readyOrders,...partialOrders,...blockedOrders].length));
+  ctx.push('Ready to ship: '+readyOrders.length);
+  ctx.push('Partial: '+partialOrders.length);
+  ctx.push('Blocked (no inventory): '+blockedOrders.length);
+
+  // Ready orders
+  if(readyOrders.length){
+    ctx.push('\n--- READY ORDERS ---');
+    readyOrders.forEach(o=>{
+      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty).join(', ');
+      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
+    });
+  }
+  // Partial orders
+  if(partialOrders.length){
+    ctx.push('\n--- PARTIAL ORDERS (some items missing) ---');
+    partialOrders.forEach(o=>{
+      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty+' (have '+i.avail+', short '+i.short+')').join(', ');
+      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
+    });
+  }
+  // Blocked orders
+  if(blockedOrders.length){
+    ctx.push('\n--- BLOCKED ORDERS (no inventory) ---');
+    blockedOrders.forEach(o=>{
+      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty).join(', ');
+      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
+    });
+  }
+  // Inventory
+  ctx.push('\n--- INVENTORY (in hand) ---');
+  Object.entries(inventory).forEach(([code,p])=>{
+    const parts=SIZES.filter(sz=>p.sizes[sz]>0).map(sz=>sz+':'+p.sizes[sz]);
+    if(parts.length) ctx.push(code+' ('+p.name+'): '+parts.join(', '));
+  });
+  // Production needs
+  if(productionNeeds.length){
+    ctx.push('\n--- PRODUCTION NEEDS ---');
+    productionNeeds.forEach(p=>{
+      ctx.push(p.code+' '+p.size+' | Short: '+p.totalShort+' | Lying Cut: '+p.lying+' | With Vendor: '+p.vendor+' | Waiting orders: '+p.orders.slice(0,5).join(', '));
+    });
+  }
+  // In office
+  const offEntries=[];
+  Object.entries(window.officeInventory||{}).forEach(([code,sizes])=>{
+    Object.entries(sizes).forEach(([size,qty])=>{ if(qty>0) offEntries.push(code+' '+size+' x'+qty); });
+  });
+  if(offEntries.length){
+    ctx.push('\n--- IN OFFICE ---');
+    ctx.push(offEntries.join(', '));
+  }
+  return ctx.join('\n');
+}
+
+async function sendAIMessage(){
+  const input=document.getElementById('aiInput');
+  const msgs=document.getElementById('aiMessages');
+  const text=input.value.trim();
+  if(!text) return;
+  input.value='';
+
+  // User message
+  const uDiv=document.createElement('div');
+  uDiv.className='ai-msg';
+  uDiv.style.cssText='background:var(--navy);color:#F5F2ED;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;align-self:flex-end;max-width:80%;margin-left:auto';
+  uDiv.textContent=text;
+  msgs.appendChild(uDiv);
+  msgs.scrollTop=msgs.scrollHeight;
+
+  // Typing indicator
+  const loadDiv=document.createElement('div');
+  loadDiv.style.cssText='background:#F0FAF4;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--ink-muted);border-left:3px solid var(--green-mid)';
+  loadDiv.textContent='Thinking…';
+  msgs.appendChild(loadDiv);
+  msgs.scrollTop=msgs.scrollHeight;
+
+  const hasDashboard=readyOrders.length||partialOrders.length||blockedOrders.length||Object.keys(inventory).length;
+  const sysPrompt='You are a helpful operations assistant for BR25 (Sana Gupta fashion brand). Answer questions about orders, inventory, and production status concisely and clearly. Use the dashboard data provided. If data is missing or dashboard not generated, say so.';
+  const userContent=hasDashboard?('Dashboard data:\n'+buildDashboardContext()+'\n\nUser question: '+text):text;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        system:sysPrompt,
+        messages:[{role:'user',content:userContent}]
+      })
+    });
+    const data=await resp.json();
+    const reply=(data.content&&data.content[0]&&data.content[0].text)||'Sorry, I could not get a response.';
+    loadDiv.style.cssText='background:#F0FAF4;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;max-width:90%;border-left:3px solid var(--green-mid);white-space:pre-wrap';
+    loadDiv.textContent=reply;
+  } catch(err){
+    loadDiv.style.cssText='background:var(--red-light);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);border-left:3px solid var(--red-mid)';
+    loadDiv.textContent='Error: Could not connect to AI. Make sure you are using claude.ai.';
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ============================================================
+// ORDERS READY-ITEMS FILTER
+// ============================================================
+// Filter is toggled by fReadyOnly select - handled inside renderOrders already
 </script>
 </body>
 </html>
