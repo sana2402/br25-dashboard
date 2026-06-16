@@ -155,7 +155,6 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <div class="tab" onclick="switchTab('unconfirmed')" style="border-left:1px solid #2D3F5A">⏳ Unconfirmed</div>
   <div class="tab" onclick="switchTab('planning')">📋 Production Planning</div>
   <div class="tab" onclick="switchTab('inoffice')" style="border-left:1px solid #2D3F5A">🏠 In Office</div>
-  <div class="tab" onclick="switchTab('aichat')">🤖 AI Assistant</div>
 </div>
 
 <div class="main">
@@ -298,33 +297,6 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
     <div id="officeTable"></div>
   </div>
 
-  <!-- AI ASSISTANT TAB -->
-  <div class="tab-content" id="tab-aichat">
-    <div style="max-width:800px;margin:0 auto">
-      <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)">
-        <div style="background:var(--navy);color:#F5F2ED;padding:14px 20px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">🤖</span>
-          <div>
-            <div style="font-size:14px;font-weight:600">BR25 Operations Assistant</div>
-            <div style="font-size:10px;color:#9A9288;margin-top:1px">Ask anything about orders, inventory, or production status</div>
-          </div>
-        </div>
-        <div id="aiMessages" style="height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
-          <div class="ai-msg ai-assistant" style="background:#F0FAF4;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;max-width:90%;border-left:3px solid var(--green-mid)">
-            Hi! I'm your BR25 operations assistant. Generate the dashboard first, then ask me things like:<br>
-            • "Which orders are ready to ship?"<br>
-            • "How much stock is left for BR25-06 in M?"<br>
-            • "What are the critical priority orders?"<br>
-            • "Which styles need urgent production?"
-          </div>
-        </div>
-        <div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:10px">
-          <input id="aiInput" placeholder="Ask about orders, inventory, dispatch..." onkeydown="if(event.key==='Enter')sendAIMessage()" style="flex:1;background:#F8F6F3;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;font-family:inherit;outline:none">
-          <button onclick="sendAIMessage()" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap">Send ↵</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
 </div><!-- end .main -->
 
@@ -494,7 +466,7 @@ function normalizeSize(s){
 // ============================================================
 // TAB
 // ============================================================
-const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','inoffice','aichat'];
+const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','inoffice'];
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TAB_NAMES[i]===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -1135,7 +1107,7 @@ function renderOrders(){
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
-  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Short</th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num" style="color:#7C3AED">In Office</th><th class="num">Short</th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
     // If readyOnly filter is on, for partial orders show only items that can be sent
@@ -1160,11 +1132,13 @@ function renderOrders(){
       h+='<td class="num">'+(qcAmt>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+qcAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       const vendorAmt=(pendingStitch[item.code]&&pendingStitch[item.code][item.finalSize]&&pendingStitch[item.code][item.finalSize].vendor)||0;
       h+='<td class="num">'+(vendorAmt>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+vendorAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
+      const officeAmt=getOfficeQty(item.code,item.finalSize);
+      h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
       h+='</tr>';
     });
   });
-  if(!all.length) h+='<tr><td colspan="11"><div class="empty">No orders match filters.</div></td></tr>';
+  if(!all.length) h+='<tr><td colspan="13"><div class="empty">No orders match filters.</div></td></tr>';
   h+='</tbody></table></div>';
   document.getElementById('ordersTable').innerHTML=h;
 }
@@ -1277,7 +1251,7 @@ function renderDispatch(){
   h+='<button onclick="openPickerList()" style="background:#4A7FB5;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🗒 Picker List</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
-  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
   let prev='';
   orders.forEach(o=>{
     o.items.forEach(item=>{
@@ -1295,6 +1269,8 @@ function renderDispatch(){
       h+='<td class="num"><strong>'+item.qty+'</strong></td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
+      const dispOffice=getOfficeQty(item.code,item.finalSize);
+      h+='<td class="num">'+(dispOffice>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600" title="In office — verify before dispatch">🏠 '+dispOffice+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">📅 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
       // Shopify note cell
       if(isFirst){
@@ -1304,7 +1280,7 @@ function renderDispatch(){
       h+='</tr>';
     });
   });
-  if(!orders.length) h+='<tr><td colspan="8"><div class="empty">No orders ready to dispatch.</div></td></tr>';
+  if(!orders.length) h+='<tr><td colspan="9"><div class="empty">No orders ready to dispatch.</div></td></tr>';
   h+='</tbody><tfoot><tr><td colspan="6">TOTAL UNITS TO DISPATCH</td><td class="num">'+totalUnits+'</td></tr></tfoot></table></div>';
   document.getElementById('dispatchTable').innerHTML=h;
 }
@@ -1529,13 +1505,14 @@ function renderPlanning(){
   // Render unified table
   let h = '<div class="sec-title">📋 Production Planning <span class="stcount">'+rows.length+' styles</span></div>';
   h += '<div style="font-size:12px;color:#6B7280;margin-bottom:12px">Confirmed orders sorted by urgency. Unconfirmed-only styles shown at bottom.</div>';
-  h += '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<div class="inv-wrap"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   h += '<thead><tr>';
   h += '<th style="padding:9px 12px;text-align:left;min-width:180px">Product</th>';
   h += '<th style="padding:9px 12px;text-align:center">Code</th>';
   h += '<th style="padding:9px 12px;text-align:center">Size</th>';
   h += '<th style="padding:9px 12px;text-align:center;color:#EF4444">Short</th>';
   h += '<th style="padding:9px 12px;text-align:center;color:#7C3AED">Potential Short</th>';
+  h += '<th style="padding:9px 12px;text-align:center;color:#196F3D">In Hand</th>';
   h += '<th style="padding:9px 12px;text-align:center;color:#D97706">Lying Cut</th>';
   h += '<th style="padding:9px 12px;text-align:center;color:#3B82F6">With Vendor</th>';
   h += '<th style="padding:9px 12px;text-align:center">Action</th>';
@@ -1572,6 +1549,12 @@ function renderPlanning(){
     } else {
       h += '<span style="color:#BBBBBB">—</span>';
     }
+    h += '</td>';
+
+    // In Hand
+    const inHandQty = (inventory[r.code]&&inventory[r.code].sizes[r.size])||0;
+    h += '<td style="padding:9px 12px;text-align:center">';
+    h += inHandQty>0?'<strong style="color:#196F3D;font-size:14px">'+inHandQty+'</strong>':'<span style="color:#BBBBBB">—</span>';
     h += '</td>';
 
     // Lying Cut
@@ -2041,15 +2024,15 @@ function addOfficeEntry(){
   document.getElementById('officeSize').value='';
   document.getElementById('officeQty').value='1';
   renderOfficeTable();
-  // Re-render dispatch and orders to show in-office column
-  if(readyOrders.length||partialOrders.length) {renderDispatch();renderOrders();}
+  // Re-render dispatch and orders to show updated in-office column
+  renderDispatch(); renderOrders();
 }
 
 function removeOfficeEntry(code,size){
   if(window.officeInventory[code]) delete window.officeInventory[code][size];
   if(window.officeInventory[code]&&Object.keys(window.officeInventory[code]).length===0) delete window.officeInventory[code];
   renderOfficeTable();
-  if(readyOrders.length||partialOrders.length) {renderDispatch();renderOrders();}
+  renderDispatch(); renderOrders();
 }
 
 function clearOffice(){
@@ -2087,117 +2070,9 @@ function renderOfficeTable(){
 }
 
 // ============================================================
-// AI CHAT ASSISTANT
-// ============================================================
-function buildDashboardContext(){
-  const ctx=[];
-  ctx.push('=== BR25 OPERATIONS DASHBOARD CONTEXT ===');
-  ctx.push('Total orders: '+([...readyOrders,...partialOrders,...blockedOrders].length));
-  ctx.push('Ready to ship: '+readyOrders.length);
-  ctx.push('Partial: '+partialOrders.length);
-  ctx.push('Blocked (no inventory): '+blockedOrders.length);
-
-  // Ready orders
-  if(readyOrders.length){
-    ctx.push('\n--- READY ORDERS ---');
-    readyOrders.forEach(o=>{
-      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty).join(', ');
-      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
-    });
-  }
-  // Partial orders
-  if(partialOrders.length){
-    ctx.push('\n--- PARTIAL ORDERS (some items missing) ---');
-    partialOrders.forEach(o=>{
-      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty+' (have '+i.avail+', short '+i.short+')').join(', ');
-      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
-    });
-  }
-  // Blocked orders
-  if(blockedOrders.length){
-    ctx.push('\n--- BLOCKED ORDERS (no inventory) ---');
-    blockedOrders.forEach(o=>{
-      const items=o.items.map(i=>i.code+' '+i.finalSize+' x'+i.qty).join(', ');
-      ctx.push(o.orderNum+' | '+o.customer+' | Priority: '+o.priority.level+'('+o.priority.days+'d) | '+items);
-    });
-  }
-  // Inventory
-  ctx.push('\n--- INVENTORY (in hand) ---');
-  Object.entries(inventory).forEach(([code,p])=>{
-    const parts=SIZES.filter(sz=>p.sizes[sz]>0).map(sz=>sz+':'+p.sizes[sz]);
-    if(parts.length) ctx.push(code+' ('+p.name+'): '+parts.join(', '));
-  });
-  // Production needs
-  if(productionNeeds.length){
-    ctx.push('\n--- PRODUCTION NEEDS ---');
-    productionNeeds.forEach(p=>{
-      ctx.push(p.code+' '+p.size+' | Short: '+p.totalShort+' | Lying Cut: '+p.lying+' | With Vendor: '+p.vendor+' | Waiting orders: '+p.orders.slice(0,5).join(', '));
-    });
-  }
-  // In office
-  const offEntries=[];
-  Object.entries(window.officeInventory||{}).forEach(([code,sizes])=>{
-    Object.entries(sizes).forEach(([size,qty])=>{ if(qty>0) offEntries.push(code+' '+size+' x'+qty); });
-  });
-  if(offEntries.length){
-    ctx.push('\n--- IN OFFICE ---');
-    ctx.push(offEntries.join(', '));
-  }
-  return ctx.join('\n');
-}
-
-async function sendAIMessage(){
-  const input=document.getElementById('aiInput');
-  const msgs=document.getElementById('aiMessages');
-  const text=input.value.trim();
-  if(!text) return;
-  input.value='';
-
-  // User message
-  const uDiv=document.createElement('div');
-  uDiv.className='ai-msg';
-  uDiv.style.cssText='background:var(--navy);color:#F5F2ED;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;align-self:flex-end;max-width:80%;margin-left:auto';
-  uDiv.textContent=text;
-  msgs.appendChild(uDiv);
-  msgs.scrollTop=msgs.scrollHeight;
-
-  // Typing indicator
-  const loadDiv=document.createElement('div');
-  loadDiv.style.cssText='background:#F0FAF4;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--ink-muted);border-left:3px solid var(--green-mid)';
-  loadDiv.textContent='Thinking…';
-  msgs.appendChild(loadDiv);
-  msgs.scrollTop=msgs.scrollHeight;
-
-  const hasDashboard=readyOrders.length||partialOrders.length||blockedOrders.length||Object.keys(inventory).length;
-  const sysPrompt='You are a helpful operations assistant for BR25 (Sana Gupta fashion brand). Answer questions about orders, inventory, and production status concisely and clearly. Use the dashboard data provided. If data is missing or dashboard not generated, say so.';
-  const userContent=hasDashboard?('Dashboard data:\n'+buildDashboardContext()+'\n\nUser question: '+text):text;
-
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        system:sysPrompt,
-        messages:[{role:'user',content:userContent}]
-      })
-    });
-    const data=await resp.json();
-    const reply=(data.content&&data.content[0]&&data.content[0].text)||'Sorry, I could not get a response.';
-    loadDiv.style.cssText='background:#F0FAF4;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;max-width:90%;border-left:3px solid var(--green-mid);white-space:pre-wrap';
-    loadDiv.textContent=reply;
-  } catch(err){
-    loadDiv.style.cssText='background:var(--red-light);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);border-left:3px solid var(--red-mid)';
-    loadDiv.textContent='Error: Could not connect to AI. Make sure you are using claude.ai.';
-  }
-  msgs.scrollTop=msgs.scrollHeight;
-}
-
-// ============================================================
 // ORDERS READY-ITEMS FILTER
 // ============================================================
-// Filter is toggled by fReadyOnly select - handled inside renderOrders already
+// Filter is toggled by fReadyItemsOnly checkbox - handled inside renderOrders already
 </script>
 </body>
 </html>
