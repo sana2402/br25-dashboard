@@ -242,23 +242,27 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 
   <!-- DISPATCH -->
   <div class="tab-content" id="tab-dispatch">
-    <div class="filter-bar">
+    <div class="filter-bar" style="flex-wrap:wrap;gap:8px">
       <label>Priority:</label>
       <select id="fDispatchPri" onchange="renderDispatch()">
         <option value="">All</option><option value="critical">Critical</option>
         <option value="high">High</option><option value="medium">Medium</option><option value="new">New</option>
       </select>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:5px 12px;font-size:12px;display:none">
-        <input type="checkbox" id="filterQCHold" onchange="renderDispatch()" style="cursor:pointer;width:14px;height:14px">
-        🟡 QC Hold only
-      </label>
+      <div style="height:28px;border-left:1px solid var(--border);margin:0 4px"></div>
+      <button onclick="openPickerList()" style="background:#1D4ED8;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🗒 Picker List — Ready</button>
+      <button onclick="openPickerListPartial()" style="background:#7C3AED;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🗒 Picker List — Partial</button>
+      <button onclick="openDispatchReady()" style="background:#065F46;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">✅ Dispatch Ready (In Office)</button>
     </div>
     <div id="dispatchTable"></div>
   </div>
 
   <!-- PACKING -->
   <div class="tab-content" id="tab-packing">
-    <div style="margin-bottom:14px"><button class="btn green" onclick="printPackingSlips()">🖨 Print All Slips</button></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <button class="btn green" onclick="printPackingSlips('all')">🖨 Print All Ready</button>
+      <button class="btn" style="background:#065F46;color:#fff;border:none" onclick="printPackingSlips('office')">🏠 Print In Office Only</button>
+      <span id="packingModeLabel" style="font-size:12px;color:var(--ink-muted);margin-left:4px"></span>
+    </div>
     <div id="packingSlips"></div>
   </div>
 
@@ -1048,7 +1052,7 @@ function runDashboard(){
   document.getElementById('cVendor').textContent=tVendor;
 
   window.scheduledOrders=scheduledOrders;
-  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking(); renderUnconfirmed(); renderPlanning();
+  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking('all'); renderUnconfirmed(); renderPlanning();
   renderOfficeTable();
   if(btn){ btn.textContent='▶ Generate'; btn.disabled=false; }
   } catch(err) {
@@ -1247,8 +1251,6 @@ function renderDispatch(){
   h+='<div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">';
   h+='<button onclick="selectAllDispatch(true)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☑ Select All</button>';
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
-
-  h+='<button onclick="openPickerList()" style="background:#4A7FB5;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🗒 Picker List</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
   h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
@@ -1288,10 +1290,44 @@ function renderDispatch(){
 // ============================================================
 // PACKING SLIPS
 // ============================================================
-function renderPacking(){
-  const sorted=[...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+function getOfficeDispatchableOrders(){
+  const officeInv = window.officeInventory || {};
+  const officeLeft = {};
+  Object.entries(officeInv).forEach(([code,sizes])=>{
+    officeLeft[code]={};
+    Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
+  });
+  const dispatchable = [];
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+    const allCovered = o.items.every(item=>(officeLeft[item.code]&&officeLeft[item.code][item.finalSize]||0)>=item.qty);
+    if(allCovered){
+      o.items.forEach(item=>{ if(officeLeft[item.code]) officeLeft[item.code][item.finalSize]-=item.qty; });
+      dispatchable.push(o);
+    }
+  });
+  return dispatchable;
+}
+
+function renderPacking(mode){
+  mode = mode || 'all';
+  let orders, label;
+  if(mode==='office'){
+    const hasOffice = Object.values(window.officeInventory||{}).some(s=>Object.values(s).some(q=>q>0));
+    if(!hasOffice){
+      document.getElementById('packingSlips').innerHTML='<div class="empty" style="padding:32px">No pieces logged in office yet.<br><br>Go to 🏠 In Office tab and add what the picker has brought in, then come back to print.</div>';
+      const lbl=document.getElementById('packingModeLabel'); if(lbl) lbl.textContent='';
+      return;
+    }
+    orders = getOfficeDispatchableOrders();
+    label = '🏠 Showing '+orders.length+' order(s) fully in office';
+  } else {
+    orders = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+    label = 'Showing all '+orders.length+' ready order(s)';
+  }
+  const lbl=document.getElementById('packingModeLabel'); if(lbl) lbl.textContent=label;
+  const slipLabel = mode==='office' ? '🏠 In Office' : '✅ Ready';
   let h='<div class="packing-grid">';
-  sorted.forEach(o=>{
+  orders.forEach(o=>{
     const date=(o.priority&&o.priority.date)?o.priority.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
     h+='<div class="slip"><div class="slip-hdr"><div><div class="slip-order">'+o.orderNum+'</div><div class="slip-customer">'+o.customer+'</div></div><div style="text-align:right">'+priBadge(o.priority)+'<div style="font-size:10px;color:#9A9288;margin-top:3px">'+date+'</div></div></div>';
     h+='<div class="slip-items">';
@@ -1302,13 +1338,12 @@ function renderPacking(){
       h+='<div><div class="si-name">'+prodName(item.code,item.itemName)+'</div><div class="si-code">'+item.code+'</div><div class="si-size">'+item.finalSize+(item.sizeChanged?' <span style="font-size:9px;color:var(--purple)">(was '+item.origSize+')</span>':'')+' × '+item.qty+'</div></div>';
       h+='</div>';
     });
-    h+='</div><div class="slip-footer"><span>'+o.items.reduce((s,i)=>s+i.qty,0)+' item(s)</span><span class="status ready">✅ Ready</span></div></div>';
+    h+='</div><div class="slip-footer"><span>'+o.items.reduce((s,i)=>s+i.qty,0)+' item(s)</span><span class="status ready">'+slipLabel+'</span></div></div>';
   });
-  if(!sorted.length) h+='<div class="empty">No orders ready for packing.</div>';
+  if(!orders.length) h+='<div class="empty">'+(mode==='office'?'No orders fully covered by office inventory yet.':'No orders ready for packing.')+'</div>';
   h+='</div>';
   document.getElementById('packingSlips').innerHTML=h;
 }
-
 
 // ============================================================
 // UNCONFIRMED ORDERS TAB
@@ -2003,9 +2038,223 @@ function openPickerList(){
   document.getElementById('pickerModal').style.display = 'block';
 }
 
-function printPackingSlips(){
+// ============================================================
+// PICKER LIST — PARTIAL ORDERS
+// ============================================================
+function openPickerListPartial(){
+  const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+
+  // Only include partial orders that have at least 1 item with canSend > 0
+  const eligible = [...partialOrders]
+    .filter(o => o.items.some(i => i.canSend > 0))
+    .sort((a,b) => priOrder(a.priority.level)-priOrder(b.priority.level));
+
+  const priorityOrder = ['urgent','critical','high','medium','new'];
+  const priorityLabels = { urgent:'🚨 Urgent', critical:'🔴 Critical — 8+ days', high:'🟠 High — 6-7 days', medium:'🟡 Medium — 3-5 days', new:'🟢 New — 1-2 days' };
+  const priorityColors = { urgent:'#7C3AED', critical:'#991B1B', high:'#C2410C', medium:'#B45309', new:'#166534' };
+  const priorityBg = { urgent:'#F5F3FF', critical:'#FFF1F2', high:'#FFF7ED', medium:'#FFFBEB', new:'#F0FDF4' };
+
+  const groups = {};
+  eligible.forEach(o=>{ const lvl=o.priority.level; if(!groups[lvl]) groups[lvl]=[]; groups[lvl].push(o); });
+
+  const totalOrders = eligible.length;
+  const totalUnits = eligible.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+(i.canSend||0),0),0);
+
+  let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F5F3FF;border-radius:8px;border-left:4px solid #7C3AED;display:flex;justify-content:space-between;align-items:center">';
+  h += '<div><div style="font-size:14px;font-weight:700;color:#4C1D95">'+today+' — Partial Order Picks</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' available units (missing items excluded)</div></div>';
+  h += '<div style="font-size:11px;color:#6B7280;text-align:right">Only pick items shown — rest are short</div>';
+  h += '</div>';
+
+  if(!eligible.length){
+    h += '<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">No partial orders with available pieces to pick.</div>';
+    document.getElementById('pickerListContent').innerHTML = h;
+    document.getElementById('pickerModal').style.display = 'block';
+    return;
+  }
+
+  priorityOrder.forEach(lvl=>{
+    const orders = groups[lvl];
+    if(!orders||!orders.length) return;
+    const color = priorityColors[lvl];
+    const bg = priorityBg[lvl];
+    const label = priorityLabels[lvl];
+    const grpUnits = orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+(i.canSend||0),0),0);
+
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="background:'+color+';color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div style="font-size:14px;font-weight:700">'+label+'</div>';
+    h += '<div style="font-size:12px;opacity:0.85">'+orders.length+' orders · '+grpUnits+' available units</div>';
+    h += '</div>';
+    h += '<div style="border:2px solid '+color+';border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
+
+    orders.forEach((o,oidx)=>{
+      const availItems = o.items.filter(i=>i.canSend>0);
+      const missingItems = o.items.filter(i=>i.short>0);
+      const availUnits = availItems.reduce((s,i)=>s+i.canSend,0);
+      const isLast = oidx===orders.length-1;
+
+      h += '<div style="background:'+bg+';padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:12px">';
+      h += '<div style="background:'+color+';color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(oidx+1)+'</div>';
+      h += '<div style="flex:1">';
+      h += '<div style="font-weight:700;font-size:13px">'+o.orderNum+' — '+o.customer+'</div>';
+      h += '<div style="font-size:11px;color:#6B7280;margin-top:1px">'+o.priority.days+' days old · '+availUnits+' available · <span style="color:#EF4444">'+missingItems.length+' item(s) still short</span></div>';
+      h += '</div>';
+      h += '<div style="font-size:11px;padding:3px 10px;background:'+color+';color:#fff;border-radius:4px;font-weight:600">Pick '+availUnits+' available</div>';
+      h += '</div>';
+
+      h += '<table style="width:100%;border-collapse:collapse">';
+      // Available items first
+      availItems.forEach((item,iidx)=>{
+        const rowBg = iidx%2===0?'#FFFFFF':'#FAFAFA';
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
+        const pName = img?img.name:item.itemName;
+        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+rowBg+'">';
+        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
+        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB">';
+        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
+        h += '</td>';
+        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px">'+pName+'</div>';
+        h += '<div style="font-size:11px;color:#6B7280;font-family:monospace;margin-top:1px">'+item.code+'</div></td>';
+        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600">'+item.finalSize+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><span style="background:'+color+';color:#fff;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">'+item.canSend+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><input type="checkbox" class="picker-chk" style="width:18px;height:18px;cursor:pointer"></td>';
+        h += '</tr>';
+      });
+      // Missing items greyed out
+      missingItems.forEach(item=>{
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
+        const pName = img?img.name:item.itemName;
+        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:#FFF5F5;opacity:0.6">';
+        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
+        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB;filter:grayscale(1)">';
+        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
+        h += '</td>';
+        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px;color:#9CA3AF;text-decoration:line-through">'+pName+'</div>';
+        h += '<div style="font-size:11px;color:#EF4444;font-family:monospace;margin-top:1px">'+item.code+' — short '+item.short+'</div></td>';
+        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600;color:#9CA3AF">'+item.finalSize+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><span style="background:#E5E7EB;color:#9CA3AF;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">0</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><span style="font-size:10px;color:#EF4444;font-weight:600">SHORT</span></td>';
+        h += '</tr>';
+      });
+      h += '</table>';
+      if(!isLast) h += '<div style="height:6px;background:#E5E7EB"></div>';
+    });
+    h += '</div></div>';
+  });
+
+  document.getElementById('pickerListContent').innerHTML = h;
+  document.getElementById('pickerModal').style.display = 'block';
+}
+
+// ============================================================
+// DISPATCH READY — orders fully in office
+// ============================================================
+function openDispatchReady(){
+  const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const officeInv = window.officeInventory || {};
+
+  // Check if office has any entries at all
+  const hasOffice = Object.values(officeInv).some(sizes=>Object.values(sizes).some(q=>q>0));
+  if(!hasOffice){
+    alert('No pieces logged in office yet.\n\nGo to the 🏠 In Office tab and add what the picker has brought in.');
+    return;
+  }
+
+  // For each ready order, check if ALL items are fully covered by office inventory
+  // Track office stock as we allocate (first-come-first-served by priority)
+  const officeLeft = {};
+  Object.entries(officeInv).forEach(([code,sizes])=>{
+    officeLeft[code]={};
+    Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
+  });
+
+  const dispatchable = [];
+  const notReady = [];
+
+  const sorted = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+  sorted.forEach(o=>{
+    // Check if all items are in office
+    let allCovered = true;
+    const coverage = o.items.map(item=>{
+      const avail = (officeLeft[item.code]&&officeLeft[item.code][item.finalSize])||0;
+      const covered = avail >= item.qty;
+      if(!covered) allCovered = false;
+      return { ...item, officeAvail: avail, covered };
+    });
+    if(allCovered){
+      // Deduct from office stock so we don't double-allocate
+      o.items.forEach(item=>{
+        if(officeLeft[item.code]&&officeLeft[item.code][item.finalSize]!==undefined)
+          officeLeft[item.code][item.finalSize] -= item.qty;
+      });
+      dispatchable.push({ ...o, items: coverage });
+    } else {
+      notReady.push({ ...o, items: coverage });
+    }
+  });
+
+  const priorityColors = { urgent:'#7C3AED', critical:'#991B1B', high:'#C2410C', medium:'#B45309', new:'#166534' };
+  const priorityBg = { urgent:'#F5F3FF', critical:'#FFF1F2', high:'#FFF7ED', medium:'#FFFBEB', new:'#F0FDF4' };
+
+  let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border-left:4px solid #10B981;display:flex;justify-content:space-between;align-items:center">';
+  h += '<div><div style="font-size:14px;font-weight:700;color:#065F46">'+today+' — Dispatch Ready (In Office)</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+dispatchable.length+' orders fully in office and ready to go · '+notReady.length+' still waiting</div></div>';
+  h += '</div>';
+
+  if(!dispatchable.length){
+    h += '<div style="background:#FEF2F2;border-radius:8px;padding:20px;text-align:center;color:#991B1B;font-size:13px;margin-bottom:16px">No orders are fully covered by office inventory yet.<br><span style="font-size:11px;color:#6B7280;display:block;margin-top:6px">Log more pieces in the 🏠 In Office tab as they come in.</span></div>';
+  } else {
+    dispatchable.forEach((o,oidx)=>{
+      const color = priorityColors[o.priority.level]||'#374151';
+      const bg = priorityBg[o.priority.level]||'#F9FAFB';
+      const orderUnits = o.items.reduce((s,i)=>s+i.qty,0);
+      h += '<div style="margin-bottom:10px;border:2px solid '+color+';border-radius:8px;overflow:hidden">';
+      h += '<div style="background:'+bg+';padding:10px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #E5E7EB">';
+      h += '<div style="background:'+color+';color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">'+( oidx+1)+'</div>';
+      h += '<div style="flex:1"><div style="font-weight:700;font-size:14px">'+o.orderNum+' — '+o.customer+'</div>';
+      h += '<div style="font-size:11px;color:#6B7280;margin-top:1px">'+o.priority.days+' days old · '+orderUnits+' units · All in office ✅</div></div>';
+      h += '<span style="background:#D1FAE5;color:#065F46;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700">✅ DISPATCH NOW</span>';
+      h += '</div>';
+      h += '<table style="width:100%;border-collapse:collapse">';
+      o.items.forEach((item,iidx)=>{
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
+        const pName = img?img.name:item.itemName;
+        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+(iidx%2===0?'#FFFFFF':'#F9FAFB')+'">';
+        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
+        if(img) h += '<img src="'+img.data+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px">';
+        h += '</td>';
+        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:12px">'+pName+'</div><div style="font-size:10px;color:#9CA3AF;font-family:monospace">'+item.code+'</div></td>';
+        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.finalSize+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><span style="background:#D1FAE5;color:#065F46;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+item.qty+'</span></td>';
+        h += '<td style="padding:8px 16px;text-align:center"><span style="font-size:11px;color:#065F46;font-weight:600">🏠 In office</span></td>';
+        h += '</tr>';
+      });
+      h += '</table></div>';
+    });
+  }
+
+  // Show what's still waiting
+  if(notReady.length){
+    h += '<div style="margin-top:20px;padding:10px 14px;background:#FEF9C3;border-radius:8px;border-left:3px solid #F59E0B;font-size:12px;color:#78350F;font-weight:600;margin-bottom:10px">⏳ '+notReady.length+' order(s) still waiting for pieces:</div>';
+    notReady.forEach(o=>{
+      const missing = o.items.filter(i=>!i.covered);
+      h += '<div style="margin-bottom:6px;padding:8px 14px;background:#FFFBEB;border-radius:6px;border:1px solid #FCD34D;font-size:12px">';
+      h += '<strong>'+o.orderNum+'</strong> — '+o.customer+' &nbsp;|&nbsp; Missing: ';
+      h += missing.map(i=>i.code+' '+i.finalSize+' (have '+i.officeAvail+', need '+i.qty+')').join(' · ');
+      h += '</div>';
+    });
+  }
+
+  document.getElementById('pickerListContent').innerHTML = h;
+  document.getElementById('pickerModal').style.display = 'block';
+}
+
+function printPackingSlips(mode){
+  mode = mode || 'all';
+  renderPacking(mode);
   switchTab('packing');
-  setTimeout(()=>window.print(),300);
+  setTimeout(()=>window.print(),400);
 }
 
 // ============================================================
@@ -2018,13 +2267,21 @@ function addOfficeEntry(){
   const size = document.getElementById('officeSize').value;
   const qty = parseInt(document.getElementById('officeQty').value)||1;
   if(!code||!size){alert('Please enter a style code and size.');return;}
+
+  // Check if this piece is needed by any order
+  const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
+  const needing=allOrders.filter(o=>o.items.some(i=>i.code===code&&i.finalSize===size));
+  if(needing.length===0 && (readyOrders.length||partialOrders.length)){
+    const go=confirm('⚠️ '+code+' '+size+' is not needed by any current order.\n\nAdd anyway? (or return to warehouse)');
+    if(!go) return;
+  }
+
   if(!window.officeInventory[code]) window.officeInventory[code]={};
   window.officeInventory[code][size]=(window.officeInventory[code][size]||0)+qty;
   document.getElementById('officeCode').value='';
   document.getElementById('officeSize').value='';
   document.getElementById('officeQty').value='1';
   renderOfficeTable();
-  // Re-render dispatch and orders to show updated in-office column
   renderDispatch(); renderOrders();
 }
 
@@ -2055,16 +2312,58 @@ function renderOfficeTable(){
     wrap.innerHTML='<div class="empty" style="padding:32px">No pieces logged in office yet. Add them above.</div>';
     return;
   }
-  let h='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty in Office</th><th></th></tr></thead><tbody>';
+
+  // Build a lookup of what orders need
+  // For each code+size: which orders need it and how many
+  const needed = {}; // {code-size: [{orderNum, customer, qty, status}]}
+  const allOrders = [...readyOrders,...partialOrders,...blockedOrders];
+  allOrders.forEach(o=>{
+    o.items.forEach(item=>{
+      const key = item.code+'-'+item.finalSize;
+      if(!needed[key]) needed[key]=[];
+      needed[key].push({orderNum:o.orderNum, customer:o.customer, qty:item.qty, status:o.status});
+    });
+  });
+
+  let h='<div class="table-wrap"><table><thead><tr>';
+  h+='<th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty in Office</th>';
+  h+='<th>Status</th><th>Needed By</th><th></th>';
+  h+='</tr></thead><tbody>';
+
   entries.forEach(e=>{
+    const key=e.code+'-'+e.size;
+    const orders=needed[key]||[];
+    const totalNeeded=orders.reduce((s,o)=>s+o.qty,0);
+
+    let statusBadge, neededBy;
+    if(orders.length===0){
+      statusBadge='<span style="background:#FEE2E2;color:#991B1B;border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600">🔴 Not needed — return to warehouse</span>';
+      neededBy='<span style="color:#9CA3AF;font-size:11px">No orders require this piece right now</span>';
+    } else {
+      const readyNeed=orders.filter(o=>o.status==='ready');
+      const partialNeed=orders.filter(o=>o.status==='partial');
+      if(readyNeed.length){
+        statusBadge='<span style="background:#D1FAE5;color:#065F46;border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600">🟢 Needed for ready order</span>';
+      } else {
+        statusBadge='<span style="background:#FEF3C7;color:#92400E;border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Needed for partial order</span>';
+      }
+      neededBy=orders.map(o=>'<div style="font-size:11px;margin-bottom:2px"><strong>'+o.orderNum+'</strong> ('+o.customer+') — needs '+o.qty+(o.status==='partial'?' <span style="color:#D97706;font-size:10px">[partial]</span>':'')+' </div>').join('');
+      if(e.qty < totalNeeded){
+        neededBy+='<div style="font-size:10px;color:#EF4444;margin-top:2px">⚠️ You have '+e.qty+' but orders need '+totalNeeded+' total</div>';
+      }
+    }
+
     h+='<tr>';
     h+='<td><div class="prod-cell">'+imgTag(e.code)+'<span class="prod-name">'+prodName(e.code,e.code)+'</span></div></td>';
     h+='<td class="code">'+e.code+'</td>';
     h+='<td class="num"><span class="size-badge">'+e.size+'</span></td>';
-    h+='<td class="num"><strong style="color:var(--green)">'+e.qty+'</strong></td>';
+    h+='<td class="num"><strong style="color:var(--green);font-size:15px">'+e.qty+'</strong></td>';
+    h+='<td>'+statusBadge+'</td>';
+    h+='<td>'+neededBy+'</td>';
     h+='<td><button onclick="removeOfficeEntry(\''+e.code+'\',\''+e.size+'\')" style="background:var(--red-light);color:var(--red);border:1px solid var(--red-mid);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit">Remove</button></td>';
     h+='</tr>';
   });
+
   h+='</tbody></table></div>';
   wrap.innerHTML=h;
 }
