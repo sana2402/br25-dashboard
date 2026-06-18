@@ -1926,116 +1926,154 @@ function loadFromSheets(){
 
 function openPickerList(){
   const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const totalOrders = readyOrders.length;
-  const totalUnits = readyOrders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
 
-  // Sort orders by priority
-  const sorted = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
-
-  // Group by priority level
-  const groups = {};
-  sorted.forEach(o=>{
-    const lvl = o.priority.level;
-    if(!groups[lvl]) groups[lvl]=[];
-    groups[lvl].push(o);
+  // Deduct office inventory first — don't ask picker to pull what's already in office
+  const officeInv = window.officeInventory || {};
+  const officeLeft = {};
+  Object.entries(officeInv).forEach(([code,sizes])=>{
+    officeLeft[code]={};
+    Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
   });
 
-  const priorityOrder = ['urgent','critical','high','medium','new'];
-  const priorityLabels = {
-    urgent: '🚨 Urgent',
-    critical: '🔴 Critical — 8+ days',
-    high: '🟠 High — 6-7 days',
-    medium: '🟡 Medium — 3-5 days',
-    new: '🟢 New — 1-2 days'
-  };
-  const priorityColors = {
-    urgent: '#7C3AED',
-    critical: '#991B1B',
-    high: '#C2410C',
-    medium: '#B45309',
-    new: '#166534'
-  };
-  const priorityBg = {
-    urgent: '#F5F3FF',
-    critical: '#FFF1F2',
-    high: '#FFF7ED',
-    medium: '#FFFBEB',
-    new: '#F0FDF4'
-  };
+  // Build style map: {code: {name, img, priority, sizes: {size: qty}}}
+  // Priority = highest priority order needing this style
+  const styleMap = {};
+  const PRIORITY_RANK = {urgent:0,critical:1,high:2,medium:3,new:4};
 
-  let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border-left:4px solid #10B981;display:flex;justify-content:space-between;align-items:center">';
-  h += '<div><div style="font-size:14px;font-weight:700;color:#065F46">'+today+'</div>';
-  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' total units</div></div>';
-  h += '<div style="font-size:11px;color:#6B7280;text-align:right">Pick one order fully before moving to next</div>';
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+    o.items.forEach(item=>{
+      const code = item.code;
+      const size = item.finalSize;
+      // How many still needed from warehouse (subtract what's already in office)
+      const inOffice = (officeLeft[code]&&officeLeft[code][size])||0;
+      const needed = Math.max(0, item.qty - inOffice);
+      // Deduct from office pool
+      if(officeLeft[code]&&officeLeft[code][size]) officeLeft[code][size] = Math.max(0, officeLeft[code][size] - item.qty);
+
+      if(needed === 0) return; // already in office, skip
+
+      if(!styleMap[code]){
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[code];
+        styleMap[code] = {
+          name: img?img.name:(item.itemName||code),
+          img: img||null,
+          priority: o.priority.level,
+          priorityRank: PRIORITY_RANK[o.priority.level]??5,
+          sizes: {}
+        };
+      }
+      // Keep highest priority
+      if((PRIORITY_RANK[o.priority.level]??5) < styleMap[code].priorityRank){
+        styleMap[code].priority = o.priority.level;
+        styleMap[code].priorityRank = PRIORITY_RANK[o.priority.level]??5;
+      }
+      styleMap[code].sizes[size] = (styleMap[code].sizes[size]||0) + needed;
+    });
+  });
+
+  // Sort styles by priority rank
+  const styles = Object.entries(styleMap).sort((a,b)=>a[1].priorityRank-b[1].priorityRank);
+  const totalStyles = styles.length;
+  const totalUnits = styles.reduce((s,[,v])=>s+Object.values(v.sizes).reduce((ss,q)=>ss+q,0),0);
+
+  const priColors = {urgent:'#7C3AED',critical:'#991B1B',high:'#C2410C',medium:'#B45309',new:'#166534'};
+  const priBg = {urgent:'#F5F3FF',critical:'#FFF1F2',high:'#FFF7ED',medium:'#FFFBEB',new:'#F0FDF4'};
+  const SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL'];
+
+  // Build WhatsApp text
+  let waText = '🗒 *Picker List — '+today+'*\n';
+  waText += totalStyles+' styles · '+totalUnits+' units\n\n';
+  styles.forEach(([code,s],idx)=>{
+    const sizeStr = SIZE_ORDER.filter(sz=>s.sizes[sz]>0).map(sz=>sz+' - '+s.sizes[sz]).join('   ');
+    waText += (idx+1)+'. *'+s.name+'* ('+code+')\n';
+    waText += '   '+sizeStr+'\n\n';
+  });
+
+  // Build HTML
+  let h = '';
+
+  // Header bar
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding:12px 16px;background:#F0FDF4;border-radius:8px;border-left:4px solid #10B981">';
+  h += '<div><div style="font-size:14px;font-weight:700;color:#065F46">'+today+' — Picker List</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalStyles+' styles · '+totalUnits+' units to pick';
+  const officeTotal = Object.values(window.officeInventory||{}).reduce((s,sz)=>s+Object.values(sz).reduce((ss,q)=>ss+q,0),0);
+  if(officeTotal>0) h += ' <span style="color:#7C3AED;font-weight:600">('+officeTotal+' already in office — excluded)</span>';
+  h += '</div></div>';
+  h += '<button onclick="copyPickerWA()" style="background:#25D366;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;display:flex;align-items:center;gap:6px">📱 Copy for WhatsApp</button>';
   h += '</div>';
 
-  priorityOrder.forEach(lvl=>{
-    const orders = groups[lvl];
-    if(!orders||!orders.length) return;
+  if(!styles.length){
+    h += '<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">All pieces already in office — nothing to pick from warehouse.</div>';
+    document.getElementById('pickerListContent').innerHTML = h;
+    document.getElementById('pickerModal').style.display = 'block';
+    window._pickerWAText = waText;
+    return;
+  }
 
-    const color = priorityColors[lvl];
-    const bg = priorityBg[lvl];
-    const label = priorityLabels[lvl];
-    const grpUnits = orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
+  // Style cards
+  styles.forEach(([code, s], idx)=>{
+    const color = priColors[s.priority]||'#374151';
+    const bg = priBg[s.priority]||'#F9FAFB';
+    const sizeEntries = SIZE_ORDER.filter(sz=>s.sizes[sz]>0);
+    const totalForStyle = sizeEntries.reduce((sum,sz)=>sum+s.sizes[sz],0);
 
-    // Priority group header
-    h += '<div style="margin-bottom:12px">';
-    h += '<div style="background:'+color+';color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">';
-    h += '<div style="font-size:14px;font-weight:700">'+label+'</div>';
-    h += '<div style="font-size:12px;opacity:0.85">'+orders.length+' orders · '+grpUnits+' units</div>';
+    h += '<div style="display:flex;gap:0;margin-bottom:10px;border:1.5px solid '+color+';border-radius:10px;overflow:hidden;background:#fff">';
+
+    // Left: image + code
+    h += '<div style="width:90px;flex-shrink:0;background:'+bg+';display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 8px;border-right:1.5px solid '+color+'">';
+    h += '<div style="font-size:11px;font-weight:700;color:#fff;background:'+color+';border-radius:4px;padding:2px 7px;margin-bottom:8px">#'+(idx+1)+'</div>';
+    if(s.img){
+      h += '<img src="'+s.img.data+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #E5E7EB;margin-bottom:6px">';
+    } else {
+      h += '<div style="width:60px;height:60px;background:#F3F4F6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9CA3AF;margin-bottom:6px">No img</div>';
+    }
+    h += '<div style="font-size:10px;font-family:monospace;color:'+color+';font-weight:700;text-align:center">'+code+'</div>';
     h += '</div>';
 
-    // Orders in this group
-    h += '<div style="border:2px solid '+color+';border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
-
-    orders.forEach((o,oidx)=>{
-      const orderUnits = o.items.reduce((s,i)=>s+i.qty,0);
-      const isLast = oidx===orders.length-1;
-
-      // Order header
-      h += '<div style="background:'+bg+';padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:12px">';
-      h += '<div style="background:'+color+';color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(oidx+1)+'</div>';
-      h += '<div style="flex:1">';
-      h += '<div style="font-weight:700;font-size:13px">'+o.orderNum+' — '+o.customer+'</div>';
-      h += '<div style="font-size:11px;color:#6B7280;margin-top:1px">'+o.priority.days+' days old · '+orderUnits+' unit'+(orderUnits>1?'s':'')+'</div>';
+    // Right: name + sizes
+    h += '<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;justify-content:center">';
+    h += '<div style="font-size:14px;font-weight:700;color:#1F2937;margin-bottom:10px">'+s.name+'</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
+    sizeEntries.forEach(sz=>{
+      h += '<div style="display:flex;align-items:center;gap:6px;background:'+bg+';border:1.5px solid '+color+';border-radius:7px;padding:5px 12px">';
+      h += '<span style="font-size:13px;font-weight:700;color:#374151">'+sz+'</span>';
+      h += '<span style="font-size:18px;font-weight:800;color:'+color+'">'+s.sizes[sz]+'</span>';
+      h += '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;margin-left:4px" title="Mark as picked">';
       h += '</div>';
-      h += '<div style="font-size:11px;padding:3px 10px;background:'+color+';color:#fff;border-radius:4px;font-weight:600">Pick all '+orderUnits+'</div>';
-      h += '</div>';
-
-      // Items table
-      h += '<table style="width:100%;border-collapse:collapse">';
-      o.items.forEach((item,iidx)=>{
-        const rowBg = iidx%2===0?'#FFFFFF':'#FAFAFA';
-        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
-        const pName = img?img.name:item.itemName;
-        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+rowBg+'">';
-        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
-        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB">';
-        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
-        h += '</td>';
-        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px">'+pName+'</div>';
-        h += '<div style="font-size:11px;color:#6B7280;font-family:monospace;margin-top:1px">'+item.code+'</div></td>';
-        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600">'+item.finalSize+'</span></td>';
-        h += '<td style="padding:8px 16px;text-align:center">';
-        h += '<span style="background:'+color+';color:#fff;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">'+item.qty+'</span>';
-        h += '</td>';
-        // Checkbox for picker to tick
-        h += '<td style="padding:8px 16px;text-align:center"><input type="checkbox" class="picker-chk" style="width:18px;height:18px;cursor:pointer"></td>';
-        h += '</tr>';
-      });
-      h += '</table>';
-
-      // Separator between orders (not last)
-      if(!isLast){
-        h += '<div style="height:6px;background:#E5E7EB"></div>';
-      }
     });
+    h += '</div>';
+    h += '</div>';
 
-    h += '</div></div>';
+    // Right edge: total
+    h += '<div style="width:60px;flex-shrink:0;background:'+color+';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">';
+    h += '<div style="font-size:22px;font-weight:800;color:#fff">'+totalForStyle+'</div>';
+    h += '<div style="font-size:10px;color:rgba(255,255,255,0.8)">unit'+(totalForStyle>1?'s':'')+'</div>';
+    h += '</div>';
+
+    h += '</div>';
   });
+
+  // Store WA text for copy
+  window._pickerWAText = waText;
 
   document.getElementById('pickerListContent').innerHTML = h;
   document.getElementById('pickerModal').style.display = 'block';
+}
+
+function copyPickerWA(){
+  const text = window._pickerWAText || '';
+  if(!text){ alert('Nothing to copy.'); return; }
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.querySelector('#pickerListContent button');
+    if(btn){ const orig=btn.textContent; btn.textContent='✅ Copied!'; btn.style.background='#065F46'; setTimeout(()=>{btn.textContent=orig;btn.style.background='#25D366';},2000); }
+  }).catch(()=>{
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('Copied to clipboard!');
+  });
 }
 
 // ============================================================
@@ -2044,103 +2082,122 @@ function openPickerList(){
 function openPickerListPartial(){
   const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
 
-  // Only include partial orders that have at least 1 item with canSend > 0
+  // First deduct what ready orders need from office (priority goes to ready orders)
+  const officeInv = window.officeInventory || {};
+  const officeLeft = {};
+  Object.entries(officeInv).forEach(([code,sizes])=>{
+    officeLeft[code]={};
+    Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
+  });
+  // Deduct ready orders from office pool first
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+    o.items.forEach(item=>{
+      if(officeLeft[item.code]&&officeLeft[item.code][item.finalSize]!==undefined)
+        officeLeft[item.code][item.finalSize] = Math.max(0, officeLeft[item.code][item.finalSize] - item.qty);
+    });
+  });
+
+  const PRIORITY_RANK = {urgent:0,critical:1,high:2,medium:3,new:4};
+  const SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL'];
+  const priColors = {urgent:'#7C3AED',critical:'#991B1B',high:'#C2410C',medium:'#B45309',new:'#166534'};
+  const priBg = {urgent:'#F5F3FF',critical:'#FFF1F2',high:'#FFF7ED',medium:'#FFFBEB',new:'#F0FDF4'};
+
+  // Build style map from partial orders (only canSend > 0 items, minus remaining office stock)
+  const styleMap = {};
   const eligible = [...partialOrders]
-    .filter(o => o.items.some(i => i.canSend > 0))
-    .sort((a,b) => priOrder(a.priority.level)-priOrder(b.priority.level));
+    .filter(o=>o.items.some(i=>i.canSend>0))
+    .sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
 
-  const priorityOrder = ['urgent','critical','high','medium','new'];
-  const priorityLabels = { urgent:'🚨 Urgent', critical:'🔴 Critical — 8+ days', high:'🟠 High — 6-7 days', medium:'🟡 Medium — 3-5 days', new:'🟢 New — 1-2 days' };
-  const priorityColors = { urgent:'#7C3AED', critical:'#991B1B', high:'#C2410C', medium:'#B45309', new:'#166534' };
-  const priorityBg = { urgent:'#F5F3FF', critical:'#FFF1F2', high:'#FFF7ED', medium:'#FFFBEB', new:'#F0FDF4' };
+  eligible.forEach(o=>{
+    o.items.forEach(item=>{
+      if((item.canSend||0) === 0) return;
+      const code = item.code;
+      const size = item.finalSize;
+      const inOffice = (officeLeft[code]&&officeLeft[code][size])||0;
+      const needed = Math.max(0, item.canSend - inOffice);
+      if(officeLeft[code]&&officeLeft[code][size]!==undefined)
+        officeLeft[code][size] = Math.max(0, officeLeft[code][size] - item.canSend);
+      if(needed === 0) return;
 
-  const groups = {};
-  eligible.forEach(o=>{ const lvl=o.priority.level; if(!groups[lvl]) groups[lvl]=[]; groups[lvl].push(o); });
+      if(!styleMap[code]){
+        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[code];
+        styleMap[code] = {
+          name: img?img.name:(item.itemName||code),
+          img: img||null,
+          priority: o.priority.level,
+          priorityRank: PRIORITY_RANK[o.priority.level]??5,
+          sizes: {}
+        };
+      }
+      if((PRIORITY_RANK[o.priority.level]??5) < styleMap[code].priorityRank){
+        styleMap[code].priority = o.priority.level;
+        styleMap[code].priorityRank = PRIORITY_RANK[o.priority.level]??5;
+      }
+      styleMap[code].sizes[size] = (styleMap[code].sizes[size]||0) + needed;
+    });
+  });
 
-  const totalOrders = eligible.length;
-  const totalUnits = eligible.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+(i.canSend||0),0),0);
+  const styles = Object.entries(styleMap).sort((a,b)=>a[1].priorityRank-b[1].priorityRank);
+  const totalStyles = styles.length;
+  const totalUnits = styles.reduce((s,[,v])=>s+Object.values(v.sizes).reduce((ss,q)=>ss+q,0),0);
 
-  let h = '<div style="margin-bottom:16px;padding:12px 16px;background:#F5F3FF;border-radius:8px;border-left:4px solid #7C3AED;display:flex;justify-content:space-between;align-items:center">';
-  h += '<div><div style="font-size:14px;font-weight:700;color:#4C1D95">'+today+' — Partial Order Picks</div>';
-  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalOrders+' orders · '+totalUnits+' available units (missing items excluded)</div></div>';
-  h += '<div style="font-size:11px;color:#6B7280;text-align:right">Only pick items shown — rest are short</div>';
+  // WhatsApp text
+  let waText = '🗒 *Partial Picker List — '+today+'*\n';
+  waText += totalStyles+' styles · '+totalUnits+' units (available only)\n\n';
+  styles.forEach(([code,s],idx)=>{
+    const sizeStr = SIZE_ORDER.filter(sz=>s.sizes[sz]>0).map(sz=>sz+' - '+s.sizes[sz]).join('   ');
+    waText += (idx+1)+'. *'+s.name+'* ('+code+')\n';
+    waText += '   '+sizeStr+'\n\n';
+  });
+  window._pickerWAText = waText;
+
+  // HTML
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding:12px 16px;background:#F5F3FF;border-radius:8px;border-left:4px solid #7C3AED">';
+  h += '<div><div style="font-size:14px;font-weight:700;color:#4C1D95">'+today+' — Partial Picker List</div>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+totalStyles+' styles · '+totalUnits+' units · available pieces only · ready orders get priority</div></div>';
+  h += '<button onclick="copyPickerWA()" style="background:#25D366;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600">📱 Copy for WhatsApp</button>';
   h += '</div>';
 
-  if(!eligible.length){
-    h += '<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">No partial orders with available pieces to pick.</div>';
+  if(!styles.length){
+    h += '<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">No partial order pieces to pick — all already in office or nothing available.</div>';
     document.getElementById('pickerListContent').innerHTML = h;
     document.getElementById('pickerModal').style.display = 'block';
     return;
   }
 
-  priorityOrder.forEach(lvl=>{
-    const orders = groups[lvl];
-    if(!orders||!orders.length) return;
-    const color = priorityColors[lvl];
-    const bg = priorityBg[lvl];
-    const label = priorityLabels[lvl];
-    const grpUnits = orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+(i.canSend||0),0),0);
+  styles.forEach(([code,s],idx)=>{
+    const color = priColors[s.priority]||'#374151';
+    const bg = priBg[s.priority]||'#F9FAFB';
+    const sizeEntries = SIZE_ORDER.filter(sz=>s.sizes[sz]>0);
+    const totalForStyle = sizeEntries.reduce((sum,sz)=>sum+s.sizes[sz],0);
 
-    h += '<div style="margin-bottom:12px">';
-    h += '<div style="background:'+color+';color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">';
-    h += '<div style="font-size:14px;font-weight:700">'+label+'</div>';
-    h += '<div style="font-size:12px;opacity:0.85">'+orders.length+' orders · '+grpUnits+' available units</div>';
+    h += '<div style="display:flex;gap:0;margin-bottom:10px;border:1.5px solid '+color+';border-radius:10px;overflow:hidden;background:#fff">';
+    // Left: image
+    h += '<div style="width:90px;flex-shrink:0;background:'+bg+';display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 8px;border-right:1.5px solid '+color+'">';
+    h += '<div style="font-size:11px;font-weight:700;color:#fff;background:'+color+';border-radius:4px;padding:2px 7px;margin-bottom:8px">#'+(idx+1)+'</div>';
+    if(s.img) h += '<img src="'+s.img.data+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #E5E7EB;margin-bottom:6px">';
+    else h += '<div style="width:60px;height:60px;background:#F3F4F6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9CA3AF;margin-bottom:6px">No img</div>';
+    h += '<div style="font-size:10px;font-family:monospace;color:'+color+';font-weight:700;text-align:center">'+code+'</div>';
     h += '</div>';
-    h += '<div style="border:2px solid '+color+';border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
-
-    orders.forEach((o,oidx)=>{
-      const availItems = o.items.filter(i=>i.canSend>0);
-      const missingItems = o.items.filter(i=>i.short>0);
-      const availUnits = availItems.reduce((s,i)=>s+i.canSend,0);
-      const isLast = oidx===orders.length-1;
-
-      h += '<div style="background:'+bg+';padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:12px">';
-      h += '<div style="background:'+color+';color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(oidx+1)+'</div>';
-      h += '<div style="flex:1">';
-      h += '<div style="font-weight:700;font-size:13px">'+o.orderNum+' — '+o.customer+'</div>';
-      h += '<div style="font-size:11px;color:#6B7280;margin-top:1px">'+o.priority.days+' days old · '+availUnits+' available · <span style="color:#EF4444">'+missingItems.length+' item(s) still short</span></div>';
+    // Middle: name + sizes
+    h += '<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;justify-content:center">';
+    h += '<div style="font-size:14px;font-weight:700;color:#1F2937;margin-bottom:4px">'+s.name+'</div>';
+    h += '<div style="font-size:11px;color:#7C3AED;font-weight:500;margin-bottom:8px">⚠️ Partial pick — other items in this order are short</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
+    sizeEntries.forEach(sz=>{
+      h += '<div style="display:flex;align-items:center;gap:6px;background:'+bg+';border:1.5px solid '+color+';border-radius:7px;padding:5px 12px">';
+      h += '<span style="font-size:13px;font-weight:700;color:#374151">'+sz+'</span>';
+      h += '<span style="font-size:18px;font-weight:800;color:'+color+'">'+s.sizes[sz]+'</span>';
+      h += '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;margin-left:4px" title="Mark as picked">';
       h += '</div>';
-      h += '<div style="font-size:11px;padding:3px 10px;background:'+color+';color:#fff;border-radius:4px;font-weight:600">Pick '+availUnits+' available</div>';
-      h += '</div>';
-
-      h += '<table style="width:100%;border-collapse:collapse">';
-      // Available items first
-      availItems.forEach((item,iidx)=>{
-        const rowBg = iidx%2===0?'#FFFFFF':'#FAFAFA';
-        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
-        const pName = img?img.name:item.itemName;
-        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:'+rowBg+'">';
-        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
-        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB">';
-        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
-        h += '</td>';
-        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px">'+pName+'</div>';
-        h += '<div style="font-size:11px;color:#6B7280;font-family:monospace;margin-top:1px">'+item.code+'</div></td>';
-        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600">'+item.finalSize+'</span></td>';
-        h += '<td style="padding:8px 16px;text-align:center"><span style="background:'+color+';color:#fff;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">'+item.canSend+'</span></td>';
-        h += '<td style="padding:8px 16px;text-align:center"><input type="checkbox" class="picker-chk" style="width:18px;height:18px;cursor:pointer"></td>';
-        h += '</tr>';
-      });
-      // Missing items greyed out
-      missingItems.forEach(item=>{
-        const img = PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
-        const pName = img?img.name:item.itemName;
-        h += '<tr style="border-bottom:0.5px solid #F0EDE8;background:#FFF5F5;opacity:0.6">';
-        h += '<td style="padding:8px 16px 8px 40px;width:52px">';
-        if(img) h += '<img src="'+img.data+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #E5E7EB;filter:grayscale(1)">';
-        else h += '<div style="width:40px;height:40px;background:#F3F4F6;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF">'+item.code+'</div>';
-        h += '</td>';
-        h += '<td style="padding:8px 12px"><div style="font-weight:600;font-size:13px;color:#9CA3AF;text-decoration:line-through">'+pName+'</div>';
-        h += '<div style="font-size:11px;color:#EF4444;font-family:monospace;margin-top:1px">'+item.code+' — short '+item.short+'</div></td>';
-        h += '<td style="padding:8px 12px;text-align:center"><span style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:4px;padding:2px 10px;font-size:12px;font-weight:600;color:#9CA3AF">'+item.finalSize+'</span></td>';
-        h += '<td style="padding:8px 16px;text-align:center"><span style="background:#E5E7EB;color:#9CA3AF;border-radius:50%;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">0</span></td>';
-        h += '<td style="padding:8px 16px;text-align:center"><span style="font-size:10px;color:#EF4444;font-weight:600">SHORT</span></td>';
-        h += '</tr>';
-      });
-      h += '</table>';
-      if(!isLast) h += '<div style="height:6px;background:#E5E7EB"></div>';
     });
     h += '</div></div>';
+    // Right: total
+    h += '<div style="width:60px;flex-shrink:0;background:'+color+';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">';
+    h += '<div style="font-size:22px;font-weight:800;color:#fff">'+totalForStyle+'</div>';
+    h += '<div style="font-size:10px;color:rgba(255,255,255,0.8)">unit'+(totalForStyle>1?'s':'')+'</div>';
+    h += '</div>';
+    h += '</div>';
   });
 
   document.getElementById('pickerListContent').innerHTML = h;
