@@ -1,0 +1,392 @@
+Name,Email,Financial Status,Paid at,Fulfillment Status,Fulfilled at,Accepts Marketing,Currency,Subtotal,Shipping,Taxes,Total,Discount Code,Discount Amount,Shipping Method,Created at,Lineitem quantity,Lineitem name,Lineitem price,Lineitem compare at price,Lineitem sku,Lineitem requires shipping,Lineitem taxable,Lineitem fulfillment status,Billing Name,Billing Street,Billing Address1,Billing Address2,Billing Company,Billing City,Billing Zip,Billing Province,Billing Country,Billing Phone,Shipping Name,Shipping Street,Shipping Address1,Shipping Address2,Shipping Company,Shipping City,Shipping Zip,Shipping Province,Shipping Country,Shipping Phone,Notes,Note Attributes,Cancelled at,Payment Method,Payment Reference,Refunded Amount,Vendor,Outstanding Balance,Employee,Location,Device ID,Id,Tags,Risk Level,Source,Lineitem discount,Tax 1 Name,Tax 1 Value,Tax 2 Name,Tax 2 Value,Tax 3 Name,Tax 3 Value,Tax 4 Name,Tax 4 Value,Tax 5 Name,Tax 5 Value,Phone,Receipt Number,Duties,Billing Province Name,Shipping Province Name,Payment ID,Payment Terms Name,Next Payment Due At,Payment References
+#SG2430,soniakalra2000@gmail.com,pending,,unfulfilled,,no,INR,450.00,0.00,68.64,450.00,sonia3149,3149.00,"",2026-06-18 18:25:21 +0530,1,Moonstone Embroidered Top - M / Linen Viscose,3599.00,,BR25-15-M,true,true,pending,Sonia .,"1601,Glendale,High Street , Hiranandani Gardens , Powai 1601, Glendale , Hi ranandani, Gardens Powai","1601,Glendale,High Street , Hiranandani Gardens , Powai 1601, Glendale , Hi ranandani",Gardens Powai,,Mumbai,'400076,MH,IN,+919833885855,Sonia .,"1601,Glendale,High Street , Hiranandani Gardens , Powai 1601, Glendale , Hi ranandani, Gardens Powai","1601,Glendale,High Street , Hiranandani Gardens , Powai 1601, Glendale , Hi ranandani",Gardens Powai,,Mumbai,'400076,MH,IN,+919833885855,confirmed,"",,"","",0.00,Sana Gupta,450.00,sana gupta,,,7540996374637,"",Low,shopify_draft_order,0.00,IGST 18%,68.64,,,,,,,,,+919833885855,,,Maharashtra,Maharashtra,,Due on receipt,,
+#SG2429,palarti258@gmail.com,paid,2026-06-18 13:06:42 +0530,unfulfilled,,yes,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-18 13:06:39 +0530,1,Everyday Ease Top - Black - M / Modal Viscose,3399.00,,BR25-39-M,true,true,pending,Arti Pal,"B4/103, Arihant Arham, Koproli, New Panvel","B4/103, Arihant Arham","Koproli, New Panvel",,Navi Mumbai,'410206,MH,IN,+918424891669,Arti Pal,"B4/103, Arihant Arham, Koproli, New Panvel","B4/103, Arihant Arham","Koproli, New Panvel",,Navi Mumbai,'410206,MH,IN,+918424891669,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T30tebMyOf9gi8
+Device_details_IP: 35.154.143.15
+cart_token: hWNBZVkBeHXAybvsVfRUs4pA?key=10ce88950f49f8b638bebdf5500a7ddf
+payment_method: upi
+utm_source: ig
+utm_medium: social
+utm_campaign: Others
+utm_content: link_in_bio
+fbclid: PAZXh0bgNhZW0CMTEAc3J0YwZhcHBfaWQPMTI0MDI0NTc0Mjg3NDE0AAGnhT5ru5su0wDYEfsEojH611DUUIohF0Ye7dCy4_ptOcHkXXKYdISj14MLzYo_aem_dijrul0RaKh-AWN5t_eQyA
+razorpay_payment_id: pay_T30uQyA412806V",,manual + Razorpay,#SG2429.1,0.00,Sana Gupta,0.00,,,,7540489060461,"Magic, upi",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+918424891669,,,Maharashtra,Maharashtra,rJbtMINv0DJ9RvyW06GkjSYY4 + #SG2429.1,,,rJbtMINv0DJ9RvyW06GkjSYY4 + #SG2429.1
+#SG2428,rupali@comfortfurniturehub.in,pending,,unfulfilled,,no,INR,3399.00,59.00,518.49,3458.00,"",0.00,Prepaid Shipping,2026-06-18 10:54:37 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,,BR25-02-M,true,true,pending,Rupali Patil,Castel Royale - 3.5/4.5/5 Luxury Apartments and Duplexes in Pune QMTI quarters Khadki,Castel Royale - 3.5/4.5/5 Luxury Apartments and Duplexes in Pune QMTI quarters Khadki,,,Pune,'411020,MH,IN,+919975033339,Rupali Patil,Castel Royale - 3.5/4.5/5 Luxury Apartments and Duplexes in Pune QMTI quarters Khadki,Castel Royale - 3.5/4.5/5 Luxury Apartments and Duplexes in Pune QMTI quarters Khadki,,,Pune,'411020,MH,IN,+919975033339,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2yeuMxkZ8uhTf
+Device_details_IP: 35.154.217.40
+cart_token: hWNDTDKMlqL9tM0TmYCOZPXw?key=8c340c6d4da4dffb852181adb2e27944
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAaeP5Oiy-hFj5vnvR1c89tgx_XJPvZ6O9vDl_PP1OgSKrwtIiFguomAiUmQL7Q_aem_IY2XDGYwgOq_BKjUTj0RGw
+razorpay_payment_id: pay_T2yfaIwZT5aktb",,Cash on Delivery (COD),"",0.00,Sana Gupta,3458.00,,,,7540110819437,"cod, Magic",Low,302289027073,0.00,IGST 18%,518.49,,,,,,,,,+919975033339,,,Maharashtra,Maharashtra,#SG2428.1,,,#SG2428.1
+#SG2427,ira.wasson@gmail.com,paid,2026-06-18 10:00:33 +0530,unfulfilled,,no,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-18 10:00:30 +0530,1,Everyday Ease Top - Red - 2XL / Modal Viscose,3399.00,,BR25-02-2XL,true,true,pending,Ira Wass on Ira Wass on,"House #17-A, Gurukripa apartments, Third Floor, Bhawani Kunj, Vasant Kunj, home","House #17-A, Gurukripa apartments, Third Floor, Bhawani Kunj, Vasant Kunj",home,,New Delhi,'110070,DL,IN,+919910076546,Ira Wass on Ira Wass on,"House #17-A, Gurukripa apartments, Third Floor, Bhawani Kunj, Vasant Kunj, home","House #17-A, Gurukripa apartments, Third Floor, Bhawani Kunj, Vasant Kunj",home,,New Delhi,'110070,DL,IN,+919910076546,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2xjIgtI8WhXbJ
+Device_details_IP: 35.154.22.73
+cart_token: hWNDT7DkghDGtRuz6tT6U9sy?key=0107d69657682cfa77609ea7b7029e2e
+payment_method: card
+is_kwikpass_logged_in: false
+utm_source: facebook
+utm_medium: paid
+utm_campaign: 120240762413380639
+utm_content: Facebook_UA
+utm_term: 120240762413390639
+fbclid: PAYW9leASgUYRleHRuA2FlbQEwAGFkaWQBqzN3Nbiub3NydGMGYXBwX2lkDzU2NzA2NzM0MzM1MjQyNwABpwODMbJj5y3jCgUOkZKTrgjWNpPTJSR8n2AlbvtOTTeMy6nH706sXGFv41FH_aem_K51aitWU1nXGw0E8y3JC0Q
+razorpay_payment_id: pay_T2xkIuehdOmM53",,manual + Razorpay,#SG2427.1,0.00,Sana Gupta,0.00,,,,7539986432109,"card, Magic",Low,302289027073,339.90,CGST 9%,233.32,SGST 9%,233.32,,,,,,,+919910076546,,,Delhi,Delhi,rHOjR2uSWqaYbW5XnYSemn3C2 + #SG2427.1,,,rHOjR2uSWqaYbW5XnYSemn3C2 + #SG2427.1
+#SG2424,draparnagovil@gmail.com,paid,2026-06-17 17:43:52 +0530,unfulfilled,,no,INR,6568.20,0.00,1001.93,6568.20,"",729.80,Prepaid Shipping,2026-06-17 17:43:50 +0530,1,Moonlace Schiffli Shirt - M / Cotton,3899.00,,BR25-86-M,true,true,pending,Aparna Bhasker,"Western Heights, Mumbai - Adani Realty Manish Nagar, JP Road, Bhudargarh Colony , Four Bungalows, Andheri West, A 807","Western Heights, Mumbai - Adani Realty Manish Nagar, JP Road, Bhudargarh Colony , Four Bungalows, Andheri West",A 807,,Mumbai,'400053,MH,IN,+919819566618,Aparna Bhasker,"Western Heights, Mumbai - Adani Realty Manish Nagar, JP Road, Bhudargarh Colony , Four Bungalows, Andheri West, A 807","Western Heights, Mumbai - Adani Realty Manish Nagar, JP Road, Bhudargarh Colony , Four Bungalows, Andheri West",A 807,,Mumbai,'400053,MH,IN,+919819566618,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2h4XYok3VMJHZ
+Device_details_IP: 35.154.22.73
+cart_token: hWNDRWmD4ecL4ZIWHUQTMpkq?key=694b07233190ea4f792dd58e36400577
+payment_method: upi
+razorpay_payment_id: pay_T2h6ZO4czhSEQU",,manual + Razorpay,#SG2424.1,0.00,Sana Gupta,0.00,,,,7538075697261,"Magic, upi",Low,302289027073,389.90,IGST 18%,1001.93,,,,,,,,,+919819566618,,,Maharashtra,Maharashtra,rWScXA9SxG0o2Ii3oH3xsLKnE + #SG2424.1,,,rWScXA9SxG0o2Ii3oH3xsLKnE + #SG2424.1
+#SG2424,draparnagovil@gmail.com,,,,,,,,,,,,,,2026-06-17 17:43:50 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,"",BR25-02-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919819566618,,,,,,,,
+#SG2421,noemail_ph_num_919953125242@noemail.magic-checkout.invalid,pending,,unfulfilled,,yes,INR,2339.10,59.00,111.38,2398.10,"",259.90,Prepaid Shipping,2026-06-17 11:31:48 +0530,1,Rosette Top - M / Modal Viscose,2599.00,,BR25-27-M,true,true,pending,khushi kasliwal,"A 3/2 Satyavati Colony ashok vihar phase 3 delhi 110052, ashok vihar phase 3",A 3/2 Satyavati Colony ashok vihar phase 3 delhi 110052,ashok vihar phase 3,,East Delhi,'110096,DL,IN,+919953125242,khushi kasliwal,"A 3/2 Satyavati Colony ashok vihar phase 3 delhi 110052, ashok vihar phase 3",A 3/2 Satyavati Colony ashok vihar phase 3 delhi 110052,ashok vihar phase 3,,East Delhi,'110096,DL,IN,+919953125242,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2alOOqkp2yOvH
+Device_details_IP: 35.154.22.73
+cart_token: hWNDQtpZhwO9NzGTNczgNEEW?key=85ceac66106714a8fd4ef852addd2a0c
+payment_method: cod
+utm_source: google
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T2alt5BR7qLDYW",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,2398.10,,,,7537446551661,"cod, Magic",Low,302289027073,259.90,CGST 2.5%,55.69,SGST 2.5%,55.69,,,,,,,+919953125242,,,Delhi,Delhi,rtlDrN0ZoxQLCAsRPovLY8TD5 + #SG2421.1,,,rtlDrN0ZoxQLCAsRPovLY8TD5 + #SG2421.1
+#SG2420,krishana.arora@gmail.com,pending,,unfulfilled,,no,INR,3059.10,59.00,466.64,3118.10,"",339.90,Prepaid Shipping,2026-06-17 07:50:54 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Krishana .,"Hno. 84, 8 marla, near pizza bite, 1st Floor, TDI Espania City, EF-21, Grand Trunk Rd, opposite Jurassic Park","Hno. 84, 8 marla, near pizza bite","1st Floor, TDI Espania City, EF-21, Grand Trunk Rd, opposite Jurassic Park",,SONIPAT,'131001,HR,IN,+917877728975,Krishana .,"Hno. 84, 8 marla, near pizza bite, 1st Floor, TDI Espania City, EF-21, Grand Trunk Rd, opposite Jurassic Park","Hno. 84, 8 marla, near pizza bite","1st Floor, TDI Espania City, EF-21, Grand Trunk Rd, opposite Jurassic Park",,SONIPAT,'131001,HR,IN,+917877728975,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2WywfsOpONn3w
+Device_details_IP: 35.154.217.40
+cart_token: hWNDQYYxmWtHX19JYtExWVmu?key=fb98485e1072ec3e0461bde9d1c17937
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA81NjcwNjczNDMzNTI0MjcAAadvQ_EwoybDHivO6A_QXuwb2P0RxPbb-13l-tYm_sNCru9agxa4Z70nW7IwCg_aem_TNYXuubRSH7pDwNfD1oUJg
+razorpay_payment_id: pay_T2X0b1g3vO8ryy",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3118.10,,,,7537213210733,"cod, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+917877728975,,,Haryana,Haryana,rWL0pdarL6tppoxcLZ3rDeL2z + #SG2420.1,,,rWL0pdarL6tppoxcLZ3rDeL2z + #SG2420.1
+#SG2418,sridevi.excise@gmail.com,pending,,unfulfilled,,no,INR,8637.30,59.00,1072.13,8696.30,Welcome10,959.70,Cash on Delivery Shipping,2026-06-17 07:28:29 +0530,1,Everyday Ease Top - Red - 3XL / Modal Viscose,3399.00,,BR25-02-3XL,true,true,pending,Sridevi P,"1009, Tower 5, My Home Tridasa, Radial Road 7, Tellapur,  Ramachandrapuram,  Hyderabad","1009, Tower 5, My Home Tridasa, Radial Road 7, Tellapur,  Ramachandrapuram,  Hyderabad",,,Hyderabd,'502032,TS,IN,8247417674,Sridevi P,"1009, Tower 5, My Home Tridasa, Radial Road 7, Tellapur,  Ramachandrapuram,  Hyderabad","1009, Tower 5, My Home Tridasa, Radial Road 7, Tellapur,  Ramachandrapuram,  Hyderabad",,,Hyderabd,'502032,TS,IN,8247417674,,"",,Cash on Delivery (COD),"",0.00,Sana Gupta,8696.30,,,,7537184997485,"",Low,web,0.00,IGST 18%,960.74,IGST 5%,111.39,,,,,,,+918247417674,,,Telangana,Telangana,r1jJt0KREtf2ZVPxeAMCgEBpA,,,r1jJt0KREtf2ZVPxeAMCgEBpA
+#SG2418,sridevi.excise@gmail.com,,,,,,,,,,,,,,2026-06-17 07:28:29 +0530,1,Moonstone Embroidered Top - 3XL / Linen Viscose,3599.00,"",BR25-15-3XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,0.00,,,,,,,,,,,+918247417674,,,,,,,,
+#SG2418,sridevi.excise@gmail.com,,,,,,,,,,,,,,2026-06-17 07:28:29 +0530,1,PRE ORDER - Classic White Pleated Pants | Linen Blend - 3XL / Linen Blend,2599.00,"",BR25-28-3XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,0.00,,,,,,,,,,,+918247417674,,,,,,,,
+#SG2417,Renuag62@yahoo.co.in,pending,,unfulfilled,,no,INR,3059.10,59.00,466.64,3118.10,"",339.90,Prepaid Shipping,2026-06-16 22:11:19 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,,BR25-02-XL,true,true,pending,renu agarwal,"18/8, rajpur road, civil lines",18/8,"rajpur road, civil lines",,North Delhi,'110054,DL,IN,+919871231193,renu agarwal,"18/8, rajpur road, civil lines",18/8,"rajpur road, civil lines",,North Delhi,'110054,DL,IN,+919871231193,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2N5nDe7N0bBLm
+Device_details_IP: 35.154.22.73
+cart_token: hWNDPao3G7uASmYkhhoUODVk?key=179e86d92455e9f54a83c255c960c6b4
+payment_method: cod
+razorpay_payment_id: pay_T2N8IXH6Bdg0JF",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3118.10,,,,7535833809005,"cod, Magic",Low,302289027073,339.90,CGST 9%,233.32,SGST 9%,233.32,,,,,,,+919871231193,,,Delhi,Delhi,rcnBRKijbdlMsfbTHl8gLq0s3 + #SG2417.1,,,rcnBRKijbdlMsfbTHl8gLq0s3 + #SG2417.1
+#SG2416,s.garima8@gmail.com,partially_refunded,2026-06-16 20:18:57 +0530,unfulfilled,,no,INR,21234.60,0.00,3239.16,21234.60,"",2359.40,Prepaid Shipping,2026-06-16 20:18:54 +0530,1,Raindrop Coord Set - L / Viscose Blend,4999.00,,BR25-09-L,true,true,pending,Garima Saxena,A12 green park extension 2nd floor 110016 new delhi,A12 green park extension 2nd floor 110016 new delhi,,,New delhi,'110016,DL,IN,+918920220905,Garima Saxena,A12 green park extension 2nd floor 110016 new delhi,A12 green park extension 2nd floor 110016 new delhi,,,New delhi,'110016,DL,IN,+918920220905,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2LBvVCQlUPmC7
+Device_details_IP: 35.154.22.73
+cart_token: hWNDPF6CFQpGurWZIrQwAOou?key=4a195cf80881bba85e253c715426c70f
+payment_method: upi
+utm_source: facebook
+utm_medium: paid
+utm_campaign: 120238334040120639
+utm_content: Facebook_UA
+utm_term: 120238334040140639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasy-mRhv-9zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAaeimfsBf5FfvvLlzTdnDqwf9cWWhWsDoZlsXLTiaoZnM05phBtBu8wO8yns4A_aem_7_NWRWIUaptasbNPRzYpqw
+razorpay_payment_id: pay_T2LCdstu637oGh",,manual + Razorpay,#SG2416.1,4499.10,Sana Gupta,10617.30,,,,7535016181869,"Magic, upi",Low,302289027073,499.90,CGST 9%,1619.58,SGST 9%,1619.58,,,,,,,+918920220905,,,Delhi,Delhi,rm5Njp72rfwPcHsD20NDYiCk5 + #SG2416.1,,,rm5Njp72rfwPcHsD20NDYiCk5 + #SG2416.1 + #SG2416.2
+#SG2416,s.garima8@gmail.com,,,,,,,,,,,,,,2026-06-16 20:18:54 +0530,1,Classic Noir Top - L / Linen Viscose,3399.00,"",BR25-16-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+918920220905,,,,,,,,
+#SG2416,s.garima8@gmail.com,,,,,,,,,,,,,,2026-06-16 20:18:54 +0530,1,Everyday Ease Top - Green - L / Modal Viscose,3399.00,"",BR25-06-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+918920220905,,,,,,,,
+#SG2416,s.garima8@gmail.com,,,,,,,,,,,,,,2026-06-16 20:18:54 +0530,1,Raindrop Coord Set - M / Viscose Blend,4999.00,0.00,BR25-09-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,499.90,,,,,,,,,,,+918920220905,,,,,,,,
+#SG2416,s.garima8@gmail.com,,,,,,,,,,,,,,2026-06-16 20:18:54 +0530,1,Classic Noir Top - M / Linen Viscose,3399.00,0.00,BR25-16-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+918920220905,,,,,,,,
+#SG2416,s.garima8@gmail.com,,,,,,,,,,,,,,2026-06-16 20:18:54 +0530,1,Everyday Ease Top - Green - M / Modal Viscose,3399.00,0.00,BR25-06-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+918920220905,,,,,,,,
+#SG2414,tannu_107@yahoo.co.in,paid,2026-06-16 13:10:59 +0530,unfulfilled,,yes,INR,13945.50,0.00,1674.20,13945.50,"",1549.50,Prepaid Shipping,2026-06-16 13:10:56 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Tanvir Dhillon,"House No. 107, Sector 12",House No. 107,Sector 12,,Panchkula,'134115,HR,IN,+919216128858,Tanvir Dhillon,"House No. 107, Sector 12",House No. 107,Sector 12,,Panchkula,'134115,HR,IN,+919216128858,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T2DtaSGRNpxXlo
+Device_details_IP: 35.154.143.15
+cart_token: hWNDOi9qILLbjztYEslC16ls?key=e724f96d1cf4ac692ed463590095a215
+payment_method: upi
+utm_source: instagram
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T2DvCX8yrltCg9",,manual + Razorpay,#SG2414.1,0.00,Sana Gupta,0.00,,,,7534503198829,"Magic, upi",Low,302289027073,339.90,IGST 18%,1468.57,IGST 5%,205.63,,,,,,,+919216128858,,,Haryana,Haryana,rTdBmigpsxEskey7kA72yKWr7 + #SG2414.1,,,rTdBmigpsxEskey7kA72yKWr7 + #SG2414.1
+#SG2414,tannu_107@yahoo.co.in,,,,,,,,,,,,,,2026-06-16 13:10:56 +0530,1,Classic Noir Top - L / Linen Viscose,3399.00,"",BR25-16-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919216128858,,,,,,,,
+#SG2414,tannu_107@yahoo.co.in,,,,,,,,,,,,,,2026-06-16 13:10:56 +0530,1,Moonlace Schiffli Shirt - L / Cotton,3899.00,"",BR25-86-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,389.90,,,,,,,,,,,+919216128858,,,,,,,,
+#SG2414,tannu_107@yahoo.co.in,,,,,,,,,,,,,,2026-06-16 13:10:56 +0530,1,Wildflower Tie Top - Pink - L / Viscose Blend,2199.00,2599.00,BR25-13-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,219.90,,,,,,,,,,,+919216128858,,,,,,,,
+#SG2414,tannu_107@yahoo.co.in,,,,,,,,,,,,,,2026-06-16 13:10:56 +0530,1,Wildrose Side Tie Top - Off White - L / Viscose Blend,2599.00,"",BR25-12-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,259.90,,,,,,,,,,,+919216128858,,,,,,,,
+#SG2412,sanjanagupta106@gmail.com,paid,2026-06-15 19:44:07 +0530,unfulfilled,,yes,INR,2339.10,0.00,111.38,2339.10,"",259.90,Prepaid Shipping,2026-06-15 19:44:05 +0530,1,Wildflower Tie Top - Sea Green - M / Viscose Blend,2599.00,,BR25-07-M,true,true,pending,Sanjana Gupta,"5/4, 2nd Floor, Sarvpriya Vihar, Near Hauz Khas Metro Station","5/4, 2nd Floor","Sarvpriya Vihar, Near Hauz Khas Metro Station",,Delhi,'110016,DL,IN,+919873238163,Sanjana Gupta,"5/4, 2nd Floor, Sarvpriya Vihar, Near Hauz Khas Metro Station","5/4, 2nd Floor","Sarvpriya Vihar, Near Hauz Khas Metro Station",,Delhi,'110016,DL,IN,+919873238163,"BR25-07-S
+confirmed","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1w3JCR0Sn8rU0
+Device_details_IP: 35.154.217.40
+cart_token: hWNDN1HTDZkqSz2rIfOy3yk8?key=66df966fbabe799a23e74af712345826
+payment_method: upi
+razorpay_payment_id: pay_T1w5PAwxlkJdli",,manual + Razorpay,#SG2412.1,0.00,Sana Gupta,0.00,,,,7532116181101,"Magic, upi",Low,302289027073,259.90,CGST 2.5%,55.69,SGST 2.5%,55.69,,,,,,,+919873238163,,,Delhi,Delhi,r6rvLjqnwfyAW9iUqbbIi6R7c + #SG2412.1,,,r6rvLjqnwfyAW9iUqbbIi6R7c + #SG2412.1
+#SG2408,hempreetkaur588@gmail.com,pending,,unfulfilled,,yes,INR,6478.20,59.00,988.20,6537.20,"",719.80,Standard Shipping,2026-06-15 07:53:04 +0530,1,Indigo Dusk Top - 2XL / Linen Blend,3599.00,,BR25-89-2XL,true,true,pending,Hempreet Kaur,"Colors pagri house, Kalgidhar toad",Colors pagri house,Kalgidhar toad,,Ludhiana,'141008,PB,IN,+919417765610,Hempreet Kaur,"Colors pagri house, Kalgidhar Road, opp Kalgidhar gurudwara sahib","Colors pagri house, Kalgidhar Road, opp Kalgidhar gurudwara sahib","","",Ludhiana,'141008,PB,IN,+919417765610,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1jxR2CqztupE2
+Device_details_IP: 35.154.143.15
+cart_token: hWND8BwJdtiCjgj8xoam5w7I?key=1a326eddf5b49d9529e8660e147e6d79
+payment_method: cod
+utm_source: ig
+utm_medium: social
+utm_campaign: Others
+utm_content: link_in_bio
+fbclid: PAZXh0bgNhZW0CMTEAc3J0YwZhcHBfaWQPMTI0MDI0NTc0Mjg3NDE0AAGnitL33dbvj50hn6uWABVv27c_8v64LIpJMNcnaidIYmPSnxCJy08W8b4Cd3k_aem_Bq6rbb29FWZbwempBWx3iw
+razorpay_payment_id: pay_T1jycx4o242QHY",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,6537.20,,,,7530835017837,"cod, Magic",Low,302289027073,359.90,IGST 18%,988.20,,,,,,,,,+919417765610,,,Punjab,Punjab,rEXKNLXAstTwR0LuVMHnQhiZa + #SG2408.1,,,rEXKNLXAstTwR0LuVMHnQhiZa + #SG2408.1
+#SG2408,hempreetkaur588@gmail.com,,,,,,,,,,,,,,2026-06-15 07:53:04 +0530,1,Indigo Dusk Top - M / Linen Blend,3599.00,"",BR25-89-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,359.90,,,,,,,,,,,+919417765610,,,,,,,,
+#SG2407,noemail_ph_num_16506447301@noemail.magic-checkout.invalid,paid,2026-06-15 02:56:09 +0530,unfulfilled,,yes,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-15 02:56:07 +0530,1,Classic Noir Top - M / Linen Viscose,3399.00,,BR25-16-M,true,true,pending,Dhivya Rajprasad,"15/3, Brindavan colony , Gandhi Road, Gill Nagar, Gill Nagar, Choolaimedu","15/3, Brindavan colony , Gandhi Road, Gill Nagar","Gill Nagar, Choolaimedu",,Chennai,'600094,TN,IN,+16506447301,Dhivya Rajprasad,"15/3, Brindavan colony , Gandhi Road, Gill Nagar, Gill Nagar, Choolaimedu","15/3, Brindavan colony , Gandhi Road, Gill Nagar","Gill Nagar, Choolaimedu",,Chennai,'600094,TN,IN,+16506447301,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1erKk0wnW5HoW
+Device_details_IP: 35.154.143.15
+cart_token: hWNDLMkVBB8VWBXHUO0y31tA?key=36beef2f861296e739df893deed68436
+payment_method: card
+utm_source: google
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T1euEflSzeTcs5",,manual + Razorpay,#SG2407.1,0.00,Sana Gupta,0.00,,,,7530510778477,"card, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+16506447301,,,Tamil Nadu,Tamil Nadu,rwHr7XbxnglQMEJ2c324tMYIr + #SG2407.1,,,rwHr7XbxnglQMEJ2c324tMYIr + #SG2407.1
+#SG2403,shals88@gmail.com,paid,2026-06-14 17:44:15 +0530,unfulfilled,,yes,INR,9807.30,0.00,1496.03,9807.30,"",1089.70,Prepaid Shipping,2026-06-14 17:44:12 +0530,1,Moonstone Embroidered Top - S / Linen Viscose,3599.00,,BR25-15-S,true,true,pending,Anuradha Banerjee,"B 915 Brigade Golden Triangle, Huskur village, Kattamnallur",B 915 Brigade Golden Triangle,"Huskur village, Kattamnallur",,Bengaluru,'560049,KA,IN,+41797860724,Anuradha Banerjee,"B 915 Brigade Golden Triangle, Huskur village, Kattamnallur",B 915 Brigade Golden Triangle,"Huskur village, Kattamnallur",,Bengaluru,'560049,KA,IN,+41797860724,"confirmed, BR25-15-XS","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1VJJA0rb3pMLe
+Device_details_IP: 35.154.22.73
+cart_token: hWNDKQAjmZjMMyouQ5aIEaSx?key=92efbaa2316f8d16854fe8ee859b4032
+payment_method: card
+utm_source: google
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T1VV6tc9vphkCj",,manual + Razorpay,#SG2403.1,0.00,Sana Gupta,0.00,,,,7529818357869,"card, Magic",Low,302289027073,359.90,IGST 18%,1496.03,,,,,,,,,+41797860724,,,Karnataka,Karnataka,rT8BaS30cI2Wh2NpeseU3ht63 + #SG2403.1,,,rT8BaS30cI2Wh2NpeseU3ht63 + #SG2403.1
+#SG2403,shals88@gmail.com,,,,,,,,,,,,,,2026-06-14 17:44:12 +0530,1,Everyday Ease Top - Black - S / Modal Viscose,3399.00,"",BR25-39-S,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+41797860724,,,,,,,,
+#SG2403,shals88@gmail.com,,,,,,,,,,,,,,2026-06-14 17:44:12 +0530,1,Moonlace Schiffli Shirt - S / Cotton,3899.00,"",BR25-86-S,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,389.90,,,,,,,,,,,+41797860724,,,,,,,,
+#SG2402,jyotisethi19@gmail.com,pending,,unfulfilled,,no,INR,6298.20,59.00,960.74,6357.20,"",699.80,Prepaid Shipping,2026-06-14 14:15:40 +0530,1,Moonstone Embroidered Top - M / Linen Viscose,3599.00,,BR25-15-M,true,true,pending,Jyoti Sethi,"Near Shiv Temple, X/1623 Street No 11, Near Shreekripa Medical Centre",Near Shiv Temple,"X/1623 Street No 11, Near Shreekripa Medical Centre",,East Delhi,'110031,DL,IN,+919999338474,Jyoti Sethi,"Near Shiv Temple, X/1623 Street No 11, Near Shreekripa Medical Centre",Near Shiv Temple,"X/1623 Street No 11, Near Shreekripa Medical Centre",,East Delhi,'110031,DL,IN,+919999338474,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1RxJWjRkPoKPa
+Device_details_IP: 35.154.143.15
+cart_token: hWNCIGfQykheJ6Crqdf4kRTY?key=414e63b8491d30559ddc76de7f1cac21
+payment_method: cod
+utm_source: facebook
+utm_medium: paid
+utm_campaign: 120240762413380639
+utm_content: 120247880845760639
+utm_term: 120240762413390639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAas0z4V-5Q9zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadvVZpaSJcspAklVBjMviYl8afq9GYRqb661X3Xbovd9uXsjiwoRCH2EGFJvA_aem_Pk441LRdTMoR9-kkZENcSQ
+razorpay_payment_id: pay_T1RxecBsVo7YEE",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,6357.20,,,,7529663004781,"cod, Magic",Low,302289027073,359.90,CGST 9%,480.37,SGST 9%,480.37,,,,,,,+919999338474,,,Delhi,Delhi,rswN5YEdqk0Awdz7l5waZUknZ + #SG2402.1,,,rswN5YEdqk0Awdz7l5waZUknZ + #SG2402.1
+#SG2402,jyotisethi19@gmail.com,,,,,,,,,,,,,,2026-06-14 14:15:40 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,"",BR25-02-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919999338474,,,,,,,,
+#SG2401,avi.jagdev@gmail.com,paid,2026-06-14 14:11:50 +0530,unfulfilled,,yes,INR,12596.40,0.00,1921.48,12596.40,"",1399.60,Prepaid Shipping,2026-06-14 14:11:48 +0530,1,Everyday Ease Top - Green - 2XL / Modal Viscose,3399.00,,BR25-06-2XL,true,true,pending,Manjeet Jagdev,#222 Kanika Garden,#222 Kanika Garden,,,Rajpura,'140401,PB,IN,+919815277729,Manjeet Jagdev,#222 Kanika Garden,#222 Kanika Garden,,,Rajpura,'140401,PB,IN,+919815277729,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1Rs565TX7e1tB
+Device_details_IP: 35.154.143.15
+cart_token: hWNDIpiPTnPbq7KT4PKPfNuF?key=8b2a281fb9a963ae174c6aacc162674d
+payment_method: upi
+utm_source: google
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T1RsmxjDaAtEgd",,manual + Razorpay,#SG2401.1,0.00,Sana Gupta,6298.20,,,,7529660678253,"Magic, upi",Low,302289027073,339.90,IGST 18%,1921.48,,,,,,,,,+919815277729,,,Punjab,Punjab,rnh9sRTE3JTfq1L4CrebA8kpw + #SG2401.1,,,rnh9sRTE3JTfq1L4CrebA8kpw + #SG2401.1
+#SG2401,avi.jagdev@gmail.com,,,,,,,,,,,,,,2026-06-14 14:11:48 +0530,1,Moonstone Embroidered Top - L / Linen Viscose,3599.00,"",BR25-15-L,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,359.90,,,,,,,,,,,+919815277729,,,,,,,,
+#SG2401,avi.jagdev@gmail.com,,,,,,,,,,,,,,2026-06-14 14:11:48 +0530,1,Moonstone Embroidered Top - XL / Linen Viscose,3599.00,0.00,BR25-15-XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,359.90,,,,,,,,,,,+919815277729,,,,,,,,
+#SG2401,avi.jagdev@gmail.com,,,,,,,,,,,,,,2026-06-14 14:11:48 +0530,1,Everyday Ease Top - Green - 3XL / Modal Viscose,3399.00,0.00,BR25-06-3XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919815277729,,,,,,,,
+#SG2400,floraprasad123@gmail.com,pending,,unfulfilled,,no,INR,3059.10,59.00,466.64,3118.10,"",339.90,Prepaid Shipping,2026-06-14 12:45:44 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,,BR25-02-M,true,true,pending,Flora Prasad,"S1 shyam sundaram, 18 ramanathan street, S1 shyam sundaram. 18 ramanathan street","S1 shyam sundaram, 18 ramanathan street",S1 shyam sundaram. 18 ramanathan street,,"Kklpauk , chennai",'600010,TN,IN,+919884517167,Flora Prasad,"S1 shyam sundaram, 18 ramanathan street, S1 shyam sundaram. 18 ramanathan street","S1 shyam sundaram, 18 ramanathan street",S1 shyam sundaram. 18 ramanathan street,,"Kklpauk , chennai",'600010,TN,IN,+919884517167,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1QPY2CUWNWGMA
+Device_details_IP: 35.154.217.40
+cart_token: hWNDJz0AZEy3uAbATSAsj5Rk?key=6855974a8b2e629c25fb74f9937b18c6
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAacwAtl-dj4T60rv2YHkf8NSVgsKfyc9H70w4FunBG8iAAFicVvfkTU-R31f_w_aem_Q2jDo3hfxsJAJjw6RMc72Q
+razorpay_payment_id: pay_T1QQdmQC8SLQuw",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3118.10,,,,7529131573357,"cod, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+919884517167,,,Tamil Nadu,Tamil Nadu,rxyTyiVX6w6PvUwXWmaF13zWv + #SG2400.1,,,rxyTyiVX6w6PvUwXWmaF13zWv + #SG2400.1
+#SG2398,ramssuj@gmail.com,paid,2026-06-14 10:02:57 +0530,unfulfilled,,no,INR,8637.30,0.00,1072.13,8637.30,"",959.70,Prepaid Shipping,2026-06-14 10:02:55 +0530,1,Indigo Dusk Top - XL / Linen Blend,3599.00,,BR25-89-XL,true,true,pending,Ramya Uthaiah,"Bhagavathi Estate, Ponnampet Road,, Aruvathokllu Post","Bhagavathi Estate, Ponnampet Road,",Aruvathokllu Post,,"Gonicoppal, Kodagu",'571213,KA,IN,+919490338331,Ramya Uthaiah,"Bhagavathi Estate, Ponnampet Road,, Aruvathokllu Post","Bhagavathi Estate, Ponnampet Road,",Aruvathokllu Post,,"Gonicoppal, Kodagu",'571213,KA,IN,+919490338331,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1NcG1qEfpaQa9
+Device_details_IP: 35.154.143.15
+cart_token: hWNDJhMknlpCoRjTwENFiOtY?key=b4bb73a142d21c59b9cc3c9437722ae7
+payment_method: upi
+is_kwikpass_logged_in: false
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA81NjcwNjczNDMzNTI0MjcAAadI92EE1hc0cJveIrlDWeWE1L5BXFi8jeHDRRgGLlSo62mfF677zd-olSSl5Q_aem_YWdncwAyYID1ZzaLqAZE-ATE3luQ
+razorpay_payment_id: pay_T1Ne3WmGCfIpvN",,manual + Razorpay,#SG2398.1,0.00,Sana Gupta,0.00,,,,7528945647725,"Magic, upi",Low,302289027073,359.90,IGST 18%,960.74,IGST 5%,111.39,,,,,,,+919490338331,,,Karnataka,Karnataka,rJm01F58AqncV81rmJowestYb + #SG2398.1,,,rJm01F58AqncV81rmJowestYb + #SG2398.1
+#SG2398,ramssuj@gmail.com,,,,,,,,,,,,,,2026-06-14 10:02:55 +0530,1,Wildflower Tie Top - Sea Green - XL / Viscose Blend,2599.00,"",BR25-07-XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,259.90,,,,,,,,,,,+919490338331,,,,,,,,
+#SG2398,ramssuj@gmail.com,,,,,,,,,,,,,,2026-06-14 10:02:55 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,"",BR25-02-XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919490338331,,,,,,,,
+#SG2397,anjni.anand@yahoo.co.in,paid,2026-06-14 09:50:34 +0530,unfulfilled,,no,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-14 09:50:31 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,,BR25-02-XL,true,true,pending,Anjni Anand,"D-200, Anand Vihar",D-200,Anand Vihar,,DELHI,'110092,DL,IN,+919167700877,Anjni Anand,"D-200, Anand Vihar",D-200,Anand Vihar,,DELHI,'110092,DL,IN,+919167700877,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1NQCJ8WMvhhhm
+Device_details_IP: 35.154.22.73
+cart_token: hWNDJgz1o1prxcJvDPl97W5M?key=a77dd28b254eebe7114b2206b8e8d80b
+payment_method: upi
+utm_source: facebook
+utm_medium: paid
+utm_campaign: 120240762413380639
+utm_content: 120247880845760639
+utm_term: 120240762413390639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAas0z4z6Bn9zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAafLxWZDQuyFb82JDSBc56-0wmILpOBMJTQj463kJtIAj2Rm6IjDfg8nP9biMw_aem_V7yZNwUbZYfsuqjKG3lQYQ
+razorpay_payment_id: pay_T1NQpiXIxIDmTE",,manual + Razorpay,#SG2397.1,0.00,Sana Gupta,0.00,,,,7528923857005,"Magic, upi",Low,302289027073,339.90,CGST 9%,233.32,SGST 9%,233.32,,,,,,,+919167700877,,,Delhi,Delhi,rXfRavyMloRmm2NHHpb3SECDm + #SG2397.1,,,rXfRavyMloRmm2NHHpb3SECDm + #SG2397.1
+#SG2394,shwetasonia_sss@yahoo.com,paid,2026-06-13 22:49:42 +0530,unfulfilled,,yes,INR,2339.10,0.00,111.39,2339.10,"",259.90,Prepaid Shipping,2026-06-13 22:49:39 +0530,1,PRE ORDER - Classic White Pleated Pants | Linen Blend - S / Linen Blend,2599.00,,BR25-28-S,true,true,pending,Shweta sonia Subramanya,1382 80 Feet Road Vijay Nagar 2nd Stage Vijayanagar,1382 80 Feet Road Vijay Nagar 2nd Stage Vijayanagar,,,Mysuru,'570017,KA,IN,+919632338664,Shweta sonia Subramanya,1382 80 Feet Road Vijay Nagar 2nd Stage Vijayanagar,1382 80 Feet Road Vijay Nagar 2nd Stage Vijayanagar,,,Mysuru,'570017,KA,IN,+919632338664,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1CB1Yrfdxqjk5
+Device_details_IP: 35.154.143.15
+cart_token: hWNDIbdnwnstHqNR3xGpS8YO?key=8f1756ab1788790f7500ccea51414b0e
+payment_method: upi
+is_kwikpass_logged_in: true
+utm_source: google
+utm_medium: Organic
+utm_campaign: Organic
+razorpay_payment_id: pay_T1CBFe3vwf2ZY0",,manual + Razorpay,#SG2394.1,0.00,Sana Gupta,0.00,,,,7528159871085,"Magic, upi",Low,302289027073,259.90,IGST 5%,111.39,,,,,,,,,+919632338664,,,Karnataka,Karnataka,rCO2WyL8oNMnGtU7kJiHpDxzm + #SG2394.1,,,rCO2WyL8oNMnGtU7kJiHpDxzm + #SG2394.1
+#SG2392,mamidim111@yahoo.com,paid,2026-06-13 21:03:52 +0530,unfulfilled,,no,INR,5398.20,0.00,578.03,5398.20,"",599.80,Prepaid Shipping,2026-06-13 21:03:50 +0530,1,Classic Noir Top - XS / Linen Viscose,3399.00,,BR25-16-XS,true,true,pending,Mohana Mamidi,"1-4-162/24, Rajarajeswari Colony, Plot No 23","1-4-162/24, Rajarajeswari Colony",Plot No 23,,Hyderabad,'500087,TS,IN,+919490792114,Mohana Mamidi,"1-4-162/24, Rajarajeswari Colony, Plot No 23","1-4-162/24, Rajarajeswari Colony",Plot No 23,,Hyderabad,'500087,TS,IN,+919490792114,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T1ALhewcH7GePU
+Device_details_IP: 35.154.143.15
+cart_token: hWNDHjFdzy8KvjVLkWTJOYVf?key=fdbbbf7edf7a7b0c185ba0dc87c05764
+payment_method: upi
+razorpay_payment_id: pay_T1ANCpkVyXT9R7",,manual + Razorpay,#SG2392.1,0.00,Sana Gupta,0.00,,,,7527989936237,"Magic, upi",Low,302289027073,339.90,IGST 18%,466.64,IGST 5%,111.39,,,,,,,+919490792114,,,Telangana,Telangana,rBE5wJDSnIlQ4TCVKBAOM6dcD + #SG2392.1,,,rBE5wJDSnIlQ4TCVKBAOM6dcD + #SG2392.1
+#SG2392,mamidim111@yahoo.com,,,,,,,,,,,,,,2026-06-13 21:03:50 +0530,1,Noir Pleated Pants - S / Linen Blend,2599.00,"",BR25-38-S,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,259.90,,,,,,,,,,,+919490792114,,,,,,,,
+#SG2391,runadoshi@gmail.com,paid,2026-06-13 18:22:42 +0530,unfulfilled,,no,INR,3399.00,0.00,518.49,3399.00,"",0.00,Standard Shipping,2026-06-13 18:22:39 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Runa Doshi,"B1401 Balmoral Estate, Baner Main Road, Ganraj Chowk",B1401 Balmoral Estate,"Baner Main Road, Ganraj Chowk",,Pune,'411021,MH,IN,+919850077410,Runa Doshi,"B1401 Balmoral Estate, Baner Main Road, Ganraj Chowk",B1401 Balmoral Estate,"Baner Main Road, Ganraj Chowk",,Pune,'411021,MH,IN,+919850077410,"confirmed, BR25-02-XL","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T17c3oUnHS6kD1
+Device_details_IP: 35.154.217.40
+cart_token: hWNCvyGUk1RlFPsoBswTPZqO?key=3c74fe71ef5624c864310ef009637be1
+payment_method: upi
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAacSrdiDgGiGNHbMMMutC5ZRGvbWLiRkkxq27lagUC6MGykXe-xYx9hRD-qjew_aem_f3vsMrYzaYa3Mbd1zRzKJQ
+razorpay_payment_id: pay_T17d3htD4m3wdZ",,Razorpay,#SG2391.1,0.00,Sana Gupta,0.00,,,,7527780843629,"Magic, upi",Low,302289027073,0.00,IGST 18%,518.49,,,,,,,,,+919850077410,,,Maharashtra,Maharashtra,#SG2391.1,,,#SG2391.1
+#SG2390,arpitasomani95@gmail.com,paid,2026-06-13 17:29:36 +0530,unfulfilled,,no,INR,8637.30,0.00,1072.13,8637.30,"",959.70,Prepaid Shipping,2026-06-13 17:29:34 +0530,1,Flow Pant - Beige - L / Linen Blend,2599.00,,BR25-29-L,true,true,pending,Arpita Somani,"D-01 North park Adani Shantigram, North park",D-01 North park Adani Shantigram,North park,,Gandhi Nagar,'382421,GJ,IN,+919148947022,Arpita Somani,"D-01 North park Adani Shantigram, North park",D-01 North park Adani Shantigram,North park,,Gandhi Nagar,'382421,GJ,IN,+919148947022,"BR25-29-M, 
+confirmed","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T16hWJ8TwNl9Rp
+Device_details_IP: 35.154.143.15
+cart_token: hWNDI5Q6U1AlXwsADlLjaf0G?key=ef6afd9bd5e7bcfea25c8a38d7ebb3d1
+payment_method: upi
+razorpay_payment_id: pay_T16j4PdpN5L1gZ",,manual + Razorpay,#SG2390.1,0.00,Sana Gupta,0.00,,,,7527719534701,"Magic, upi",Low,302289027073,259.90,IGST 18%,960.74,IGST 5%,111.39,,,,,,,+919148947022,,,Gujarat,Gujarat,rh4zrZJKd7vZwt4dMLC1FOTqw + #SG2390.1,,,rh4zrZJKd7vZwt4dMLC1FOTqw + #SG2390.1
+#SG2390,arpitasomani95@gmail.com,,,,,,,,,,,,,,2026-06-13 17:29:34 +0530,1,Indigo Dusk Top - M / Linen Blend,3599.00,"",BR25-89-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,359.90,,,,,,,,,,,+919148947022,,,,,,,,
+#SG2390,arpitasomani95@gmail.com,,,,,,,,,,,,,,2026-06-13 17:29:34 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,"",BR25-02-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919148947022,,,,,,,,
+#SG2389,kmerai05@gmail.com,paid,2026-06-13 11:04:18 +0530,unfulfilled,,yes,INR,7558.20,0.00,1152.95,7558.20,"",839.80,Prepaid Shipping,2026-06-13 11:04:15 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,,BR25-02-M,true,true,pending,karishma chavan,"b 501 gurukrupa sharanam, Opp Shailendra School, S V Road, Dahisar East",b 501 gurukrupa sharanam,"Opp Shailendra School, S V Road, Dahisar East",,MUMBAI,'400068,MH,IN,+919920182977,karishma chavan,"b 501 gurukrupa sharanam, Opp Shailendra School, S V Road, Dahisar East",b 501 gurukrupa sharanam,"Opp Shailendra School, S V Road, Dahisar East",,MUMBAI,'400068,MH,IN,+919920182977,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T106rmml0Z9giH
+Device_details_IP: 35.154.143.15
+cart_token: hWNCjUXJt1Fevzs2eLXp2Wwu?key=675a8b78fa303bb87a7834d9bae0effa
+payment_method: card
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAafsNbGwdeiw9SlQ4lVGfMxnKYDG5Pa_zkgyuhMz_15PTgBny7jtdg7BSoRQ6Q_aem_RcQio2lvkWucyAuD48eaZA
+razorpay_payment_id: pay_T10ABxgiT6mtr2",,manual + Razorpay,#SG2389.1,0.00,Sana Gupta,0.00,,,,7527139082349,"card, Magic",Low,302289027073,339.90,IGST 18%,1152.95,,,,,,,,,+919920182977,,,Maharashtra,Maharashtra,rYl7s24fomsjSdHiCMIImvVTZ + #SG2389.1,,,rYl7s24fomsjSdHiCMIImvVTZ + #SG2389.1
+#SG2389,kmerai05@gmail.com,,,,,,,,,,,,,,2026-06-13 11:04:15 +0530,1,Dusk Coord Set | Linen Blend - S / Linen Blend,4999.00,"",BR25-20-S,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,499.90,,,,,,,,,,,+919920182977,,,,,,,,
+#SG2386,nish.adorable@gmail.com,paid,2026-06-12 22:28:41 +0530,unfulfilled,,no,INR,6118.20,0.00,933.28,6118.20,"",679.80,Prepaid Shipping,2026-06-12 22:28:38 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Nishtha Agarwal,Plot no 9 basant bahar 4,Plot no 9 basant bahar 4,,,Ahemdabad,'380058,GJ,IN,+918107362883,Nishtha Agarwal,Plot no 9 basant bahar 4,Plot no 9 basant bahar 4,,,Ahemdabad,'380058,GJ,IN,+918107362883,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T0nGB1zZm9XNwg
+Device_details_IP: 35.154.217.40
+cart_token: hWNDGDgWATJduwFAUSNVCVK0?key=aa07cd10a170940aa02bce012e21689c
+payment_method: card
+razorpay_payment_id: pay_T0nHEhvXah0xsk",,manual + Razorpay,#SG2386.1,0.00,Sana Gupta,3059.10,,,,7526124847213,"card, Magic",Low,302289027073,339.90,IGST 18%,933.28,,,,,,,,,+918107362883,,,Gujarat,Gujarat,r2UmYjVIyrRotR9kn01pQODXC + #SG2386.1,,,r2UmYjVIyrRotR9kn01pQODXC + #SG2386.1
+#SG2386,nish.adorable@gmail.com,,,,,,,,,,,,,,2026-06-12 22:28:38 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,0.00,BR25-02-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+918107362883,,,,,,,,
+#SG2384,sangeeta.relan@gmail.com,pending,,unfulfilled,,no,INR,3399.00,59.00,518.49,3458.00,"",0.00,Prepaid Shipping,2026-06-12 17:39:55 +0530,1,Everyday Ease Top - Black - M / Modal Viscose,3399.00,,BR25-39-M,true,true,pending,Sangeeta Relan,"421, The Magnolias, DLF Golf Links, DLF 5","421, The Magnolias, DLF Golf Links, DLF 5",,,Gurugram,'122009,HR,IN,+919810003381,Sangeeta Relan,"421, The Magnolias, DLF Golf Links, DLF 5","421, The Magnolias, DLF Golf Links, DLF 5",,,Gurugram,'122009,HR,IN,+919810003381,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T0iMzrxThGI2fs
+Device_details_IP: 35.154.22.73
+cart_token: hWNC57KHtpFa3fBYhTpQ8ae4?key=ab7abe56315af8c53cc17e30b4c1fb0d
+payment_method: cod
+utm_source: ig
+utm_medium: social
+utm_campaign: Others
+utm_content: link_in_bio
+fbclid: PAZXh0bgNhZW0CMTEAc3J0YwZhcHBfaWQPMTI0MDI0NTc0Mjg3NDE0AAGnDgHLnQWLcVenZRhJOSp2LqfJNBiT-ePzsu0GxyhZxGlUjr_amTEGMF4R-5g_aem_wNcIo0-768--mw4LNEbGnw
+razorpay_payment_id: pay_T0iNBt9POMaLAX",,Cash on Delivery (COD),"",0.00,Sana Gupta,3458.00,,,,7525754437741,"cod, Magic",Low,302289027073,0.00,IGST 18%,518.49,,,,,,,,,+919810003381,,,Haryana,Haryana,#SG2384.1,,,#SG2384.1
+#SG2383,hanithag@gmail.com,paid,2026-06-12 15:07:13 +0530,unfulfilled,,no,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-12 15:07:10 +0530,1,Everyday Ease Top - Red - M / Modal Viscose,3399.00,,BR25-02-M,true,true,pending,HANITHA GIRIDHARAN,"7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony 7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony","7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony 7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony",,,CHENNAI,'600032,TN,IN,+919500035190,HANITHA GIRIDHARAN,"7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony 7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony","7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony 7/23, First Main Road Navaratna Gardens Ekkaduthangal near Defence Officers Colony",,,CHENNAI,'600032,TN,IN,+919500035190,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T0fjdXqh5b5jZj
+Device_details_IP: 35.154.143.15
+cart_token: hWNDFURd3FyPN6gzZismXjAi?key=07fda98dce0963ae4e77da832f89fff3
+payment_method: card
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadd5HRrMg6PKy9GQt0Xrzz2cZ4QQqXnv3uVwRX_TZNO_wWpszhXc19H5Mu_0g_aem_rn-OYihZnXtUkF32qoyfow
+razorpay_payment_id: pay_T0flVqPUrxCigk",,manual + Razorpay,#SG2383.1,0.00,Sana Gupta,0.00,,,,7525638373485,"card, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+919500035190,,,Tamil Nadu,Tamil Nadu,rlnzDpGkwvQjEJN1Ya8ih2fZx + #SG2383.1,,,rlnzDpGkwvQjEJN1Ya8ih2fZx + #SG2383.1
+#SG2377,priyanka1saxena@gmail.com,paid,2026-06-11 20:36:22 +0530,unfulfilled,,yes,INR,3899.00,0.00,594.76,3899.00,"",0.00,"",2026-06-11 18:27:51 +0530,1,Sunlit Stripe Shirt - M / Viscose,3899.00,,BR25-68-M,true,true,pending,priyanka sakhsena,"1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai","1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai",,,Mumbai Subueban,'400053,MH,IN,+919869267629,priyanka sakhsena,"1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai","1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai",,,Mumbai Subueban,'400053,MH,IN,+919869267629,"Confirmed, Dispatch 26th June","",,manual,#SG2377.1,0.00,Sana Gupta,0.00,sana gupta,,,7523625631853,"",Low,shopify_draft_order,0.00,IGST 18%,594.76,,,,,,,,,+919869267629,,,Maharashtra,Maharashtra,#SG2377.1,Due on receipt,,#SG2377.1
+#SG2373,deeksha.23.raj@gmail.com,pending,,unfulfilled,,no,INR,6118.20,59.00,933.28,6177.20,"",679.80,Prepaid Shipping,2026-06-11 09:22:43 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Deeksha Raj,"I-402, I Block, Casagrand Irene, 2/260, Periyar, Manapakkam Main Road, Manapakkam","I-402, I Block, Casagrand Irene, 2/260, Periyar, Manapakkam Main Road",Manapakkam,,Kanchipuram,'600125,TN,IN,+917703983842,Deeksha Raj,"I-402, I Block, Casagrand Irene, 2/260, Periyar, Manapakkam Main Road, Manapakkam","I-402, I Block, Casagrand Irene, 2/260, Periyar, Manapakkam Main Road",Manapakkam,,Kanchipuram,'600125,TN,IN,+917703983842,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_T0BLwo5nOsB7Rn
+Device_details_IP: 35.154.143.15
+cart_token: hWNCdYsWhmu168Y3vfkab1OO?key=a763f546e50e8fca481e2a696afed22c
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAac7kjkTce3Rape5GNDLWUzgzlQTGC8lEtCFBRSHdzZ7T4Uq4OGs0i9qTEn5bg_aem_5vsen96nNI8Q8ew-TmjjUg
+razorpay_payment_id: pay_T0BMq23GjVU4Jy",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,6177.20,,,,7522691743853,"cod, Magic",Low,302289027073,339.90,IGST 18%,933.28,,,,,,,,,+917703983842,,,Tamil Nadu,Tamil Nadu,rCT32oVoop7GJkL8LXVIkC6VI + #SG2373.1,,,rCT32oVoop7GJkL8LXVIkC6VI + #SG2373.1
+#SG2373,deeksha.23.raj@gmail.com,,,,,,,,,,,,,,2026-06-11 09:22:43 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,0.00,BR25-02-XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+917703983842,,,,,,,,
+#SG2367,,paid,2026-06-10 15:07:32 +0530,unfulfilled,,no,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-06-10 15:07:30 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,,BR25-02-XL,true,true,pending,Nilima Bahir,"Mr.B.N.Bahir SPANDAN Kohinoor Planet housing Society ,plot no 14,near Spicer College,Aundh-Sangavi Road,Aundh, Pune 411007, Maharashtra India","Mr.B.N.Bahir SPANDAN Kohinoor Planet housing Society ,plot no 14,near Spicer College,Aundh-Sangavi Road,Aundh, Pune 411007",Maharashtra India,,Pune,'411007,MH,IN,+919422652412,Nilima Bahir,"Mr.B.N.Bahir SPANDAN Kohinoor Planet housing Society ,plot no 14,near Spicer College,Aundh-Sangavi Road,Aundh, Pune 411007, Maharashtra India","Mr.B.N.Bahir SPANDAN Kohinoor Planet housing Society ,plot no 14,near Spicer College,Aundh-Sangavi Road,Aundh, Pune 411007",Maharashtra India,,Pune,'411007,MH,IN,+919422652412,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_SzsfVWfkJLV1xL
+Device_details_IP: 35.154.22.73
+cart_token: hWNDAnQYKwgFX0LC5VU6ZSS4?key=0509865eeee46666111489342408ac33
+payment_method: upi
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: IwZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZAo2NjI4NTY4Mzc5AAEejEfM4tfAkXc__yXiz2hDXZm_3jD5IW5Mxt6ksmZVIDOMTPkANL1xM6bZVh4_aem_AiPz0RzDgDLhUCZILRLMVw
+razorpay_payment_id: pay_SzshVv7POk0OpS",,manual + Razorpay,#SG2367.1,0.00,Sana Gupta,0.00,,,,7520974372973,"Magic, upi",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+919422652412,,,Maharashtra,Maharashtra,rYtCuyJEYLKV29839NO1h3ZeB + #SG2367.1,,,rYtCuyJEYLKV29839NO1h3ZeB + #SG2367.1
+#SG2357,satputerita@yahoo.in,paid,2026-06-09 13:25:26 +0530,unfulfilled,,no,INR,6498.00,0.00,718.52,6498.00,"",0.00,Prepaid Shipping,2026-06-09 13:25:24 +0530,1,Moonlace Schiffli Shirt - XS / Cotton,3899.00,,BR25-86-XS,true,true,pending,Rita Satpute,"E-702, Kalpataru Regency Phase 2, Lane No.10, Opp Hotel Supreme , Kalyaninagar, Pune","E-702, Kalpataru Regency Phase 2, Lane No.10","Opp Hotel Supreme , Kalyaninagar, Pune",,PUNE,'411006,MH,IN,+919890015383,Rita Satpute,"E-702, Kalpataru Regency Phase 2, Lane No.10, Opp Hotel Supreme , Kalyaninagar, Pune","E-702, Kalpataru Regency Phase 2, Lane No.10","Opp Hotel Supreme , Kalyaninagar, Pune",,PUNE,'411006,MH,IN,+919890015383,confirmed,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_SzSP4cWGqeos9G
+Device_details_IP: 35.154.22.73
+cart_token: hWND8GtURZHuI60JpLBuGRDI?key=72a0870acd6332fe6f4732d0b7849224
+payment_method: upi
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: IwZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xNzM4NDc2NDI2NzAzNzAAAR7NBv0aju60SppojS_zBlC1uElvCVr6RhMUm-hJTXbgq3QMeEz2lvriyc0Gcw_aem_NJJ-fFXKMrIvrrsngJ52hQ
+razorpay_payment_id: pay_SzSQuhAEDk5FF5",,Razorpay,#SG2357.1,0.00,Sana Gupta,0.00,,,,7518530732141,"Magic, upi",Low,302289027073,0.00,IGST 18%,594.76,IGST 5%,123.76,,,,,,,+919890015383,,,Maharashtra,Maharashtra,#SG2357.1,,,#SG2357.1
+#SG2357,satputerita@yahoo.in,,,,,,,,,,,,,,2026-06-09 13:25:24 +0530,1,Sunline Shirt - XS / Viscose Blend,2599.00,"",BR25-10-XS,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,0.00,,,,,,,,,,,+919890015383,,,,,,,,
+#SG2343,neelu.shikha22@gmail.com,pending,,unfulfilled,,no,INR,5999.00,59.00,915.10,6058.00,"",0.00,Prepaid Shipping,2026-06-08 08:37:25 +0530,1,Wild Meadow Co-ord Set - L / Viscose Blend,5999.00,,BR25-31-L,true,true,pending,Shikha Singh,4P-903AWHO Road Sector Chi 1 AWHO Phase III,4P-903AWHO Road Sector Chi 1 AWHO Phase III,,,Gautam Buddha Nagar,'201315,UP,IN,+918299205359,Shikha Singh,4P-903AWHO Road Sector Chi 1 AWHO Phase III,4P-903AWHO Road Sector Chi 1 AWHO Phase III,,,Gautam Buddha Nagar,'201315,UP,IN,+918299205359,BR25-31-M,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_Syyz3zft5yYJPv
+Device_details_IP: 35.154.143.15
+cart_token: hWND5SU5EUy6vE0xgTL9ONwi?key=a850bb6fe4e411f373ddd81ff15ad801
+payment_method: cod
+utm_source: facebook
+utm_medium: paid
+utm_campaign: 120238334040120639
+utm_content: Facebook_UA
+utm_term: 120238334040140639
+fbclid: IwZXh0bgNhZW0BMABhZGlkAasy-mRhv-9zcnRjBmFwcF9pZAo2NjI4NTY4Mzc5AAEeGymr_7pNAxNQ7dcpiTpp73ux3bfb5NISiHW8VmoRA5Go1MuvtKB232J8FcI_aem_RlTXUfz2I3Qb9zZWOtnKbQ
+razorpay_payment_id: pay_SyyzdprTdvqEqM",,Cash on Delivery (COD),"",0.00,Sana Gupta,6058.00,,,,7515310325869,"cod, Magic",Low,302289027073,0.00,IGST 18%,915.10,,,,,,,,,+918299205359,,,Uttar Pradesh,Uttar Pradesh,#SG2343.1,,,#SG2343.1
+#SG2339,palghamoljenifer@gmail.com,pending,,unfulfilled,,no,INR,3059.10,59.00,466.64,3118.10,"",339.90,Prepaid Shipping,2026-06-07 23:38:25 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,,BR25-02-XL,true,true,pending,Jenifer Immanuel Immanuel,"29/3113,Jeevan Bhima Nagar,Anna Nagar west extension, Near. Chennai Public school, Chennai 600101","29/3113,Jeevan Bhima Nagar,Anna Nagar west extension, Near. Chennai Public school, Chennai 600101",,,Chennai,'600101,TN,IN,+919322213340,Jenifer Immanuel Immanuel,"29/3113,Jeevan Bhima Nagar,Anna Nagar west extension, Near. Chennai Public school, Chennai 600101","29/3113,Jeevan Bhima Nagar,Anna Nagar west extension, Near. Chennai Public school, Chennai 600101",,,Chennai,'600101,TN,IN,+919322213340,not picking up,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_SypnYGVjbzeJQm
+Device_details_IP: 35.154.22.73
+cart_token: hWND4ZkZIuo5VJQaCDikjN1o?key=30c6e4cf53c8ba5069650d6f1fa0277d
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA81NjcwNjczNDMzNTI0MjcAAacIsdpvckpjGX3N8QOVA0XQZOejFPHmEW8uLjOSlDYiCnORBADAr5uVLT5XXw_aem_orXLNCHX2fhj4Ua9MfuGtA
+razorpay_payment_id: pay_SypoHxyXjYdXXH",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3118.10,,,,7514661159021,"cod, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+919322213340,,,Tamil Nadu,Tamil Nadu,rohkbEqScw5vT2jvFgsXkbN1n + #SG2339.1,,,rohkbEqScw5vT2jvFgsXkbN1n + #SG2339.1
+#SG2337,snigdhagr@yahoo.in,paid,2026-06-07 23:00:26 +0530,unfulfilled,,no,INR,9267.30,0.00,1413.66,9267.30,"",1029.70,Prepaid Shipping,2026-06-07 23:00:23 +0530,1,Classic Noir Top - XL / Linen Viscose,3299.00,,BR25-16-XL,true,true,pending,Snigdha Roy,"Flat No. 801, Wing 6, Ten BKC, Kalanagar, Bnadra East, Kalanagar Bandra East","Flat No. 801, Wing 6, Ten BKC, Kalanagar, Bnadra East",Kalanagar Bandra East,,Mumbai Subueban,'400051,MH,IN,+919930078993,Snigdha Roy,"Flat No. 801, Wing 6, Ten BKC, Kalanagar, Bnadra East, Kalanagar Bandra East","Flat No. 801, Wing 6, Ten BKC, Kalanagar, Bnadra East",Kalanagar Bandra East,,Mumbai Subueban,'400051,MH,IN,+919930078993,,"Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_Syp7y2395aw88K
+Device_details_IP: 35.154.22.73
+cart_token: hWND4VauXa20QhizCm8yHtWm?key=a270d039510f1dee6cd72b035db83edf
+payment_method: upi
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA81NjcwNjczNDMzNTI0MjcAAaevxp0Kt_QrggMNuyuEjU6IcGWIQatUIUJ37om6tvSBLixoD1RXbiIcITRupA_aem_JcQgJXefcux3-OBjQEI47w
+razorpay_payment_id: pay_Syp9jt1iT6NfFN",,manual + Razorpay,#SG2337.1,0.00,Sana Gupta,0.00,,,,7514599293037,"Magic, upi",Low,302289027073,329.90,IGST 18%,1413.66,,,,,,,,,+919930078993,,,Maharashtra,Maharashtra,rI6Sqo42i5ypWXK4MCCoaJHzX + #SG2337.1,,,rI6Sqo42i5ypWXK4MCCoaJHzX + #SG2337.1
+#SG2337,snigdhagr@yahoo.in,,,,,,,,,,,,,,2026-06-07 23:00:23 +0530,1,Everyday Ease Top - Red - XL / Modal Viscose,3399.00,"",BR25-02-XL,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,339.90,,,,,,,,,,,+919930078993,,,,,,,,
+#SG2337,snigdhagr@yahoo.in,,,,,,,,,,,,,,2026-06-07 23:00:23 +0530,1,Moonstone Embroidered Top - XS / Linen Viscose,3599.00,"",BR25-15-XS,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,359.90,,,,,,,,,,,+919930078993,,,,,,,,
+#SG2289,reshmaabhogle@gmail.com,pending,,unfulfilled,,no,INR,3059.10,59.00,466.64,3118.10,"",339.90,Prepaid Shipping,2026-06-04 15:12:52 +0530,1,Everyday Ease Top - Red - 3XL / Modal Viscose,3399.00,,BR25-02-3XL,true,true,pending,Reshma Bhogle,"F 1201, Indradhanu Society, Behind Vanaz Metro station, Kothrud","F 1201, Indradhanu Society","Behind Vanaz Metro station, Kothrud",,PUNE,'411038,MH,IN,+918530886143,Reshma Bhogle,"F 1201, Indradhanu Society, Behind Vanaz Metro station, Kothrud","F 1201, Indradhanu Society","Behind Vanaz Metro station, Kothrud",,PUNE,'411038,MH,IN,+918530886143,"confirmed, deliver after 16th June","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_SxVZY61AdLjue0
+Device_details_IP: 35.154.22.73
+cart_token: hWNCwgkE1ZfcV6Zaj8EJFvF6?key=6cafa08c7d9898cb4d2e75fd4082eb1e
+payment_method: cod
+razorpay_payment_id: pay_SxVarhYpvGxGdf",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3118.10,,,,7502494204013,"cod, Magic",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+918530886143,,,Maharashtra,Maharashtra,r9KGtPcRcLcVJJVs1nOJLraKd + #SG2289.1,,,r9KGtPcRcLcVJJVs1nOJLraKd + #SG2289.1
+#SG2251,shefaliamod@gmail.com,pending,,unfulfilled,,no,INR,3239.10,59.00,494.10,3298.10,"",359.90,Prepaid Shipping,2026-06-02 22:37:28 +0530,1,Indigo Dusk Top - L / Linen Blend,3599.00,,BR25-89-L,true,true,pending,Shefali Vig,"1a, 1A Sobha Malachite",1a,1A Sobha Malachite,,Bengaluru,'560064,KA,IN,+919845320501,Shefali Vig,"1a, 1A Sobha Malachite",1a,1A Sobha Malachite,,Bengaluru,'560064,KA,IN,+919845320501,"confirmed, deliver after 23rd June","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_Swq5AydIVnRocW
+Device_details_IP: 35.154.22.73
+cart_token: hWNCshwzv0fX1COclqzmQvjg?key=672b0fc32becbeff821cd6e156048432
+payment_method: cod
+utm_source: facebook
+utm_medium: cpc
+utm_campaign: Prospect | Sales | Creative Based
+utm_content: Broad | All Products | Women 22-55
+utm_term: 120234256794220639
+fbclid: PAZXh0bgNhZW0BMABhZGlkAasykOcqe89zcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAae0yj6LECNKsNBVll36QGgvej1W7y3GUWXDfCndyNIyn0FIXsxPlQc-rEbOrw_aem_KORHDLUdHNQjLyH0kDS6Yg
+razorpay_payment_id: pay_Swq5hQV4P0U5KD",,manual + Cash on Delivery (COD),"",0.00,Sana Gupta,3298.10,,,,7497057206381,"cod, Magic",Low,302289027073,359.90,IGST 18%,494.10,,,,,,,,,+919845320501,,,Karnataka,Karnataka,r2b5Ayad2qLBNe5nM5k8WEfK5 + #SG2251.1,,,r2b5Ayad2qLBNe5nM5k8WEfK5 + #SG2251.1
+#SG2240,priyanka1saxena@gmail.com,paid,2026-06-01 16:15:05 +0530,unfulfilled,,yes,INR,5998.00,0.00,642.25,5998.00,"",0.00,"",2026-06-01 16:11:50 +0530,1,Classic White Pleated Pants | Linen Blend - M / Linen Blend,2599.00,,BR25-28-M,true,true,pending,priyanka sakhsena,"1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai","1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai",,,Mumbai Subueban,'400053,MH,IN,+919869267629,priyanka sakhsena,"1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai","1001, building 18,indradarshan 1, Tarapore Gardens, Milat Nagar, Andheri West, Mumbai",,,Mumbai Subueban,'400053,MH,IN,+919869267629,"Confirmed, Dispatch 26th june","",,manual,#SG2240.1,0.00,Sana Gupta,0.00,sana gupta,,,7493741445229,"",Low,shopify_draft_order,0.00,IGST 18%,518.49,IGST 5%,123.76,,,,,,,+919869267629,,,Maharashtra,Maharashtra,#SG2240.1,Due on receipt,,#SG2240.1
+#SG2240,priyanka1saxena@gmail.com,,,,,,,,,,,,,,2026-06-01 16:11:50 +0530,1,Everyday Ease Top - Green - M / Modal Viscose,3399.00,"",BR25-06-M,true,true,pending,,,,,,,,,,,,,,,,,,,,,,,,,,,Sana Gupta,,,,,,,,,0.00,,,,,,,,,,,+919869267629,,,,,,,,
+#SG2107,,paid,2026-05-20 08:50:48 +0530,unfulfilled,,no,INR,3059.10,0.00,466.64,3059.10,"",339.90,Prepaid Shipping,2026-05-20 08:50:45 +0530,1,Everyday Ease Top - Red - L / Modal Viscose,3399.00,,BR25-02-L,true,true,pending,Medhavi Mehta,"601, Cosmos",601,Cosmos,,Mumbai,'400056,MH,IN,+916262629996,Medhavi Mehta,"601, Cosmos",601,Cosmos,,Mumbai,'400056,MH,IN,+916262629996,"","Paid via: Razorpay Magic Checkout
+razorpay_order_id: order_SrT0IYR80D2TOf
+Device_details_IP: 35.154.22.73
+cart_token: hWNCMkyk1cydb31EwRmVA4hg?key=227a464c357df1f887d20b56a40703ae
+payment_method: upi
+razorpay_payment_id: pay_SrT3fOSFq2Bn2Z",,manual + Razorpay,#SG2107.1,0.00,Sana Gupta,0.00,,,,7460824088685,"Magic, upi",Low,302289027073,339.90,IGST 18%,466.64,,,,,,,,,+916262629996,,,Maharashtra,Maharashtra,rEqNv3IpAjFQap7jaR0QyC9Zz + #SG2107.1,,,rEqNv3IpAjFQap7jaR0QyC9Zz + #SG2107.1
