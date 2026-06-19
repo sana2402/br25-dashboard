@@ -850,7 +850,7 @@ function parseShopify(rows){
     if(!isConfirmed){
       // store unconfirmed for separate tab
       if(!window._unconfirmedOrders) window._unconfirmedOrders={};
-      if(!window._unconfirmedOrders[on]) window._unconfirmedOrders[on]={orderNum:on,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt),items:[]};
+      if(!window._unconfirmedOrders[on]) window._unconfirmedOrders[on]={orderNum:on,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),items:[]};
       const m2=sku.match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
       if(m2) window._unconfirmedOrders[on].items.push({code:m2[1].trim().toUpperCase(),size:normalizeSize(m2[2]),qty:Number(row[qtyCol])||1,itemName:iNameCol!==-1?String(row[iNameCol]||''):sku});
       continue;
@@ -873,7 +873,7 @@ function parseShopify(rows){
     }
     const finalSize=changes[code]||origSize;
     const changed=finalSize!==origSize;
-    const pri=getPriority(om.createdAt);
+    const pri=getPriority(om.createdAt, om.notes);
     items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
                 customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
   }
@@ -961,7 +961,9 @@ function runDashboard(){
 
   // Sort by priority
   const sorted = Object.keys(orderGroups).sort((a,b)=>{
-    return priOrder(orderGroups[a][0].priority.level)-priOrder(orderGroups[b][0].priority.level);
+    const pa=orderGroups[a][0].priority, pb=orderGroups[b][0].priority;
+    const lvlDiff=priOrder(pa.level)-priOrder(pb.level);
+    return lvlDiff !== 0 ? lvlDiff : pb.days-pa.days; // older orders win tiebreak
   });
 
   readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[];
@@ -1087,7 +1089,7 @@ function prodName(code,fallback){
 // OVERVIEW
 // ============================================================
 function renderOverview(){
-  const all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+  const all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
   let h='<div class="sec-title">All Orders by Priority <span class="stcount">'+all.length+'</span></div>';
   h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Items</th><th>Date</th></tr></thead><tbody>';
   all.forEach(o=>{
@@ -1107,7 +1109,7 @@ function renderOrders(){
   const pf=document.getElementById('fPri').value;
   const cf=document.getElementById('fChanged').value;
   const readyOnly=document.getElementById('fReadyItemsOnly')&&document.getElementById('fReadyItemsOnly').checked;
-  let all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+  let all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
@@ -1231,7 +1233,7 @@ function renderProduction(){
 // ============================================================
 function renderDispatch(){
   const pf=document.getElementById('fDispatchPri').value;
-  let orders=[...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+  let orders=[...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
   if(pf) orders=orders.filter(o=>o.priority.level===pf);
   const qcHoldOnly=document.getElementById('filterQCHold')&&document.getElementById('filterQCHold').checked;
   if(qcHoldOnly){
@@ -1243,7 +1245,7 @@ function renderDispatch(){
         const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
         return withQC>=item.short;
       });
-    }).sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+    }).sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
     orders=qcHoldOrders; // show ONLY QC hold orders, not combined with ready
   }
   const totalUnits=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
@@ -1298,7 +1300,7 @@ function getOfficeDispatchableOrders(){
     Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
   });
   const dispatchable = [];
-  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days).forEach(o=>{
     const allCovered = o.items.every(item=>(officeLeft[item.code]&&officeLeft[item.code][item.finalSize]||0)>=item.qty);
     if(allCovered){
       o.items.forEach(item=>{ if(officeLeft[item.code]) officeLeft[item.code][item.finalSize]-=item.qty; });
@@ -1321,7 +1323,7 @@ function renderPacking(mode){
     orders = getOfficeDispatchableOrders();
     label = '🏠 Showing '+orders.length+' order(s) fully in office';
   } else {
-    orders = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+    orders = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
     label = 'Showing all '+orders.length+' ready order(s)';
   }
   const lbl=document.getElementById('packingModeLabel'); if(lbl) lbl.textContent=label;
@@ -1352,7 +1354,7 @@ function renderUnconfirmed(){
   const wrap = document.getElementById('unconfirmedTable');
   if(!wrap) return;
   const orders = Object.values(window._unconfirmedOrders||{})
-    .sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+    .sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
 
   if(orders.length===0){
     wrap.innerHTML='<div class="empty" style="padding:40px;text-align:center;color:var(--ink-muted)">No unconfirmed orders found.</div>';
@@ -1940,7 +1942,7 @@ function openPickerList(){
   const styleMap = {};
   const PRIORITY_RANK = {urgent:0,critical:1,high:2,medium:3,new:4};
 
-  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days).forEach(o=>{
     o.items.forEach(item=>{
       const code = item.code;
       const size = item.finalSize;
@@ -2090,7 +2092,7 @@ function openPickerListPartial(){
     Object.entries(sizes).forEach(([sz,qty])=>{ officeLeft[code][sz]=qty; });
   });
   // Deduct ready orders from office pool first
-  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)).forEach(o=>{
+  [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days).forEach(o=>{
     o.items.forEach(item=>{
       if(officeLeft[item.code]&&officeLeft[item.code][item.finalSize]!==undefined)
         officeLeft[item.code][item.finalSize] = Math.max(0, officeLeft[item.code][item.finalSize] - item.qty);
@@ -2106,7 +2108,7 @@ function openPickerListPartial(){
   const styleMap = {};
   const eligible = [...partialOrders]
     .filter(o=>o.items.some(i=>i.canSend>0))
-    .sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+    .sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
 
   eligible.forEach(o=>{
     o.items.forEach(item=>{
@@ -2229,7 +2231,7 @@ function openDispatchReady(){
   const dispatchable = [];
   const notReady = [];
 
-  const sorted = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level));
+  const sorted = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
   sorted.forEach(o=>{
     // Check if all items are in office
     let allCovered = true;
