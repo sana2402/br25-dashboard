@@ -929,21 +929,22 @@ function runDashboard(){
   inventory = parseInventory(invRows);
   pendingStitch = parsePendingStitch(pendRows);
 
-  // Read vendor names from Stitching Log — {code: vendorName}
+  // Read vendor names from Stitching Log — {code|size: vendorName}
   window.vendorNames = {};
   try {
     const stitchSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('stitching log'));
     if(stitchSheetName){
       const stitchRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[stitchSheetName],{header:1,defval:null});
-      // Col 1 = Style No, Col 4 = Tailor/Vendor, Col 14 = Status
+      // Col 1 = Style No, Col 3 = Size, Col 4 = Tailor/Vendor, Col 14 = Status
       stitchRows.slice(1).forEach(r=>{
         if(!r||!r[1]||!r[4]) return;
         const code = String(r[1]).trim().toUpperCase();
+        const size = String(r[3]||'').trim().toUpperCase();
         const vendor = String(r[4]).trim();
         const status = String(r[14]||'').toLowerCase();
-        // Only track vendor if still with them (not returned)
-        if(vendor && status !== 'returned' && !window.vendorNames[code]){
-          window.vendorNames[code] = vendor;
+        if(vendor && status !== 'returned'){
+          const key = size ? code+'|'+size : code;
+          if(!window.vendorNames[key]) window.vendorNames[key] = vendor;
         }
       });
     }
@@ -1646,7 +1647,7 @@ function renderPlanning(){
     h += '</td>';
 
     // Action
-    const vendorName = (window.vendorNames&&window.vendorNames[r.code])||'';
+    const vendorName = (window.vendorNames&&(window.vendorNames[r.code+'|'+r.size]||window.vendorNames[r.code]))||'';
     const vendorLabel = vendorName ? ' ('+vendorName+')' : '';
     const action = r.short===0&&r.potentialShort===0?
       '<span style="color:#BBBBBB">—</span>':
