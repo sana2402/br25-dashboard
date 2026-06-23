@@ -639,8 +639,23 @@ function parseSizeChanges(note){
 }
 
 // ============================================================
-// PARSE INVENTORY (Final Inventory sheet)
+// PARSE REMOVALS — "remove BR25-09-M" or "remove BR25-09 M" from notes
 // ============================================================
+function parseRemovals(note){
+  // Returns Set of "CODE|SIZE" strings to remove
+  const removed = new Set();
+  if(!note) return removed;
+  const re=/remove\s+(BR25-\d+(?:\s*T)?)\s*[-\s]\s*(XS|S|M|L|XL|2XL|3XL|XXL)/gi;
+  let m;
+  while((m=re.exec(note))!==null){
+    const code=m[1].trim().toUpperCase();
+    const size=normalizeSize(m[2]);
+    removed.add(code+'|'+size);
+  }
+  return removed;
+}
+
+
 function parseInventory(rows){
   // Headers in row 2 (index 1): Product Name, Product Code (BR25), XS, S, M, L, XL, 2XL, 3XL
   let hRow = -1;
@@ -857,11 +872,14 @@ function parseShopify(rows){
       continue;
     }
     const {changes, styleChanges}=parseSizeChanges(om.notes);
+    const removals=parseRemovals(om.notes);
+    // Check if this item has been removed via note ("remove BR25-09-M")
+    if(removals.has(code+'|'+origSize)) continue;
+
     // Check if this item has been replaced by a style change
     const styleSwap=styleChanges.find(sc=>sc.oldCode===code&&sc.oldSize===origSize);
     if(styleSwap){
       // Skip if Shopify already has the replacement item active in this order
-      // i.e. newCode-newSize exists in orderItemMap with cap='0.00' (active replacement)
       const newSkuPattern=(styleSwap.newCode+'-'+styleSwap.newSize).toUpperCase();
       const orderItems=orderItemMap[on]||[];
       const alreadyActive=orderItems.some(i=>i.sku.toUpperCase()===newSkuPattern&&(i.cap==='0.00'||i.cap===0||i.cap==='0'));
@@ -873,6 +891,8 @@ function parseShopify(rows){
       continue;
     }
     const finalSize=changes[code]||origSize;
+    // Also check removal against finalSize in case note uses changed size
+    if(removals.has(code+'|'+finalSize)) continue;
     const changed=finalSize!==origSize;
     const pri=getPriority(om.createdAt, om.notes);
     items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
