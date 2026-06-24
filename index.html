@@ -905,7 +905,10 @@ function parseShopify(rows){
     items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
                 customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment});
   }
-  return items;
+  // Build a payment lookup by order number for use in runDashboard
+  const paymentMap={};
+  Object.keys(meta).forEach(on=>{ paymentMap[on]=meta[on].payment||''; });
+  return {items,paymentMap};
 }
 
 // ============================================================
@@ -1001,7 +1004,7 @@ function runDashboard(){
 
 
   // Parse orders
-  const allLines = parseShopify(shopifyRaw);
+  const {items: allLines, paymentMap} = parseShopify(shopifyRaw);
   const orderGroups={};
   allLines.forEach(item=>{
     if(!orderGroups[item.orderNum]) orderGroups[item.orderNum]=[];
@@ -1030,7 +1033,7 @@ function runDashboard(){
     const deliveryDate=items[0].deliveryDate?new Date(items[0].deliveryDate):null;
     const deliveryDateStr=items[0].deliveryDateStr||null;
     const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr,payment:items[0].payment||''};
+    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr,payment:paymentMap[on]||''};
     if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
