@@ -792,7 +792,7 @@ function parseShopify(rows){
   const col=n=>headers.indexOf(n);
   const oCol=col('name'),skuCol=col('lineitem sku'),qtyCol=col('lineitem quantity');
   const iNameCol=col('lineitem name'),notesCol=col('notes'),statusCol=col('fulfillment status');
-  const createdCol=col('created at'),custCol=col('billing name'),payCol=col('payment method');
+  const createdCol=col('created at'),custCol=col('billing name'),payCol=col('payment method'),finCol=col('financial status');
 
   const meta={};
   let last='';
@@ -804,7 +804,15 @@ function parseShopify(rows){
     if(row[notesCol]&&!meta[on].notes) meta[on].notes=String(row[notesCol]).trim();
     if(row[custCol]) meta[on].customer=String(row[custCol]);
     if(row[createdCol]) meta[on].createdAt=row[createdCol];
-    if(payCol!==-1&&row[payCol]&&!meta[on].payment) meta[on].payment=String(row[payCol]).trim();
+    // Payment: prefer Payment Method column, fall back to Financial Status
+    if(!meta[on].payment){
+      if(payCol!==-1&&row[payCol]) meta[on].payment=String(row[payCol]).trim();
+      else if(finCol!==-1&&row[finCol]){
+        const fin=String(row[finCol]).toLowerCase();
+        if(fin==='pending') meta[on].payment='Cash on Delivery (COD)';
+        else if(fin==='paid') meta[on].payment='Prepaid';
+      }
+    }
   }
 
   // Pre-pass: detect replaced/removed items
