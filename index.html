@@ -957,7 +957,8 @@ function runDashboard(){
       stitchRows.slice(1).forEach(r=>{
         if(!r||!r[1]||!r[4]) return;
         const code = String(r[1]).trim().toUpperCase();
-        const size = String(r[3]||'').trim().toUpperCase();
+        const rawSize = String(r[3]||'').trim().toUpperCase();
+        const size = normalizeSize(rawSize); // normalize XXL→2XL etc
         const vendor = String(r[4]).trim();
         const status = String(r[14]||'').toLowerCase();
         if(vendor && status !== 'returned'){
