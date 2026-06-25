@@ -1324,7 +1324,8 @@ function renderDispatch(){
       if(isFirst){
         h+='<td rowspan="'+(o.items.length)+'" style="text-align:center"><input type="checkbox" class="dispatch-chk" data-order="'+(o.orderNum)+'" style="width:15px;height:15px;cursor:pointer"></td>';
         h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong>'+(dispatchedOrders[o.orderNum]?'<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ '+dispatchedOrders[o.orderNum]+'</div>':'')+' </td>';
-        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'</td>';
+        const _isCOD=o.payment&&o.payment.toLowerCase().includes('cash on delivery');
+        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span></td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
