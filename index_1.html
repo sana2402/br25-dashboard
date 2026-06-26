@@ -276,24 +276,29 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 
   <!-- IN OFFICE TAB -->
   <div class="tab-content" id="tab-inoffice">
-    <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end">
-      <div>
-        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Style Code</div>
-        <input id="officeCode" placeholder="e.g. BR25-06" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);width:130px;font-family:inherit">
+    <div style="background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:14px">Add pieces in office</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Product</div>
+          <div style="position:relative">
+            <input id="officeSearch" placeholder="Search by name or code e.g. BR25-06" autocomplete="off"
+              oninput="filterOfficeProducts()" onfocus="showOfficeDropdown()" onblur="setTimeout(hideOfficeDropdown,200)"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--ink);font-family:inherit;box-sizing:border-box">
+            <div id="officeDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:100;max-height:220px;overflow-y:auto;margin-top:2px"></div>
+          </div>
+          <input type="hidden" id="officeCode">
+        </div>
       </div>
-      <div>
-        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Size</div>
-        <select id="officeSize" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);font-family:inherit">
-          <option value="">Select</option>
-          <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
-        </select>
+      <div id="officeSizeEntry" style="display:none">
+        <div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px">Enter qty for each size (leave blank to skip):</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px" id="officeSizeInputs"></div>
+        <button onclick="addOfficeEntry()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 24px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">+ Add to Office</button>
+        <button onclick="clearOfficeForm()" style="background:#F3F4F6;border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit;margin-left:8px">Cancel</button>
       </div>
-      <div>
-        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px">Qty</div>
-        <input id="officeQty" type="number" min="1" value="1" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);width:70px;font-family:inherit">
+      <div style="display:flex;justify-content:flex-end">
+        <button onclick="clearOffice()" style="background:#F3F4F6;border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--red)">Clear All</button>
       </div>
-      <button onclick="addOfficeEntry()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">+ Add</button>
-      <button onclick="clearOffice()" style="background:#F3F4F6;border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">Clear All</button>
     </div>
     <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;background:var(--blue-light);border-radius:6px;padding:8px 12px">
       ℹ️ Pieces manually tracked as "In Office" — these show as an extra column in Dispatch and Orders tabs to prevent double-allocation.
@@ -639,8 +644,23 @@ function parseSizeChanges(note){
 }
 
 // ============================================================
-// PARSE INVENTORY (Final Inventory sheet)
+// PARSE REMOVALS — "remove BR25-09-M" or "remove BR25-09 M" from notes
 // ============================================================
+function parseRemovals(note){
+  // Returns Set of "CODE|SIZE" strings to remove
+  const removed = new Set();
+  if(!note) return removed;
+  const re=/remove\s+(BR25-\d+(?:\s*T)?)\s*[-\s]\s*(XS|S|M|L|XL|2XL|3XL|XXL)/gi;
+  let m;
+  while((m=re.exec(note))!==null){
+    const code=m[1].trim().toUpperCase();
+    const size=normalizeSize(m[2]);
+    removed.add(code+'|'+size);
+  }
+  return removed;
+}
+
+
 function parseInventory(rows){
   // Headers in row 2 (index 1): Product Name, Product Code (BR25), XS, S, M, L, XL, 2XL, 3XL
   let hRow = -1;
@@ -713,11 +733,13 @@ function parsePendingStitch(rows){
 function parseQualityCheck(rows){
   let hRow=rows.findIndex(r=>r&&r.some(v=>String(v||'').toLowerCase().includes('style no')));
   if(hRow===-1)hRow=1;
+  const headers=rows[hRow].map(h=>String(h||'').trim().toLowerCase());
+  const col=n=>headers.findIndex(h=>h.includes(n));
+
   const styleCol=0;
-  const totalCol=3;
-  const returnedCol=21;
-  const pendingCol=23;
-  const sizeBreakupCol=26;
+  const totalCol=col('total pieces')!==-1?col('total pieces'):4;
+  const returnedCol=col('returned pcs')!==-1?col('returned pcs'):22;
+  const sizeBreakupCol=col('size breakup')!==-1?col('size breakup'):27;
 
   const result={};
   for(let i=hRow+1;i<rows.length;i++){
@@ -772,7 +794,7 @@ function parseShopify(rows){
   const col=n=>headers.indexOf(n);
   const oCol=col('name'),skuCol=col('lineitem sku'),qtyCol=col('lineitem quantity');
   const iNameCol=col('lineitem name'),notesCol=col('notes'),statusCol=col('fulfillment status');
-  const createdCol=col('created at'),custCol=col('billing name');
+  const createdCol=col('created at'),custCol=col('billing name'),payCol=col('payment method'),finCol=col('financial status');
 
   const meta={};
   let last='';
@@ -784,6 +806,15 @@ function parseShopify(rows){
     if(row[notesCol]&&!meta[on].notes) meta[on].notes=String(row[notesCol]).trim();
     if(row[custCol]) meta[on].customer=String(row[custCol]);
     if(row[createdCol]) meta[on].createdAt=row[createdCol];
+    // Payment: prefer Payment Method column, fall back to Financial Status
+    if(!meta[on].payment){
+      if(payCol!==-1&&row[payCol]) meta[on].payment=String(row[payCol]).trim();
+      else if(finCol!==-1&&row[finCol]){
+        const fin=String(row[finCol]).toLowerCase();
+        if(fin==='pending') meta[on].payment='Cash on Delivery (COD)';
+        else if(fin==='paid') meta[on].payment='Prepaid';
+      }
+    }
   }
 
   // Pre-pass: detect replaced/removed items
@@ -857,28 +888,37 @@ function parseShopify(rows){
       continue;
     }
     const {changes, styleChanges}=parseSizeChanges(om.notes);
+    const removals=parseRemovals(om.notes);
+    // Check if this item has been removed via note ("remove BR25-09-M")
+    if(removals.has(code+'|'+origSize)) continue;
+
     // Check if this item has been replaced by a style change
     const styleSwap=styleChanges.find(sc=>sc.oldCode===code&&sc.oldSize===origSize);
     if(styleSwap){
       // Skip if Shopify already has the replacement item active in this order
-      // i.e. newCode-newSize exists in orderItemMap with cap='0.00' (active replacement)
       const newSkuPattern=(styleSwap.newCode+'-'+styleSwap.newSize).toUpperCase();
       const orderItems=orderItemMap[on]||[];
       const alreadyActive=orderItems.some(i=>i.sku.toUpperCase()===newSkuPattern&&(i.cap==='0.00'||i.cap===0||i.cap==='0'));
       if(!alreadyActive){
         const finalSize=styleSwap.newSize;
         const finalCode=styleSwap.newCode;
-        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment:om.payment||''});
       }
       continue;
     }
     const finalSize=changes[code]||origSize;
+    // Also check removal against finalSize in case note uses changed size
+    if(removals.has(code+'|'+finalSize)) continue;
     const changed=finalSize!==origSize;
     const pri=getPriority(om.createdAt, om.notes);
+    const payment=om.payment||'';
     items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
-                customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes});
+                customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment});
   }
-  return items;
+  // Build a payment lookup by order number for use in runDashboard
+  const paymentMap={};
+  Object.keys(meta).forEach(on=>{ paymentMap[on]=meta[on].payment||''; });
+  return {items,paymentMap};
 }
 
 // ============================================================
@@ -908,6 +948,28 @@ function runDashboard(){
 
   inventory = parseInventory(invRows);
   pendingStitch = parsePendingStitch(pendRows);
+
+  // Read vendor names from Stitching Log — {code|size: vendorName}
+  window.vendorNames = {};
+  try {
+    const stitchSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('stitching log'));
+    if(stitchSheetName){
+      const stitchRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[stitchSheetName],{header:1,defval:null});
+      // Col 1 = Style No, Col 3 = Size, Col 4 = Tailor/Vendor, Col 14 = Status
+      stitchRows.slice(1).forEach(r=>{
+        if(!r||!r[1]||!r[4]) return;
+        const code = String(r[1]).trim().toUpperCase();
+        const rawSize = String(r[3]||'').trim().toUpperCase();
+        const size = normalizeSize(rawSize); // normalize XXL→2XL etc
+        const vendor = String(r[4]).trim();
+        const status = String(r[14]||'').toLowerCase();
+        if(vendor && status !== 'returned'){
+          const key = size ? code+'|'+size : code;
+          if(!window.vendorNames[key]) window.vendorNames[key] = vendor;
+        }
+      });
+    }
+  } catch(e) { window.vendorNames = {}; }
 
   // Parse Quality Checking tab
   let qcData = {};
@@ -953,7 +1015,7 @@ function runDashboard(){
 
 
   // Parse orders
-  const allLines = parseShopify(shopifyRaw);
+  const {items: allLines, paymentMap} = parseShopify(shopifyRaw);
   const orderGroups={};
   allLines.forEach(item=>{
     if(!orderGroups[item.orderNum]) orderGroups[item.orderNum]=[];
@@ -982,7 +1044,7 @@ function runDashboard(){
     const deliveryDate=items[0].deliveryDate?new Date(items[0].deliveryDate):null;
     const deliveryDateStr=items[0].deliveryDateStr||null;
     const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr};
+    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr,payment:paymentMap[on]||''};
     if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
@@ -1265,7 +1327,8 @@ function renderDispatch(){
       if(isFirst){
         h+='<td rowspan="'+(o.items.length)+'" style="text-align:center"><input type="checkbox" class="dispatch-chk" data-order="'+(o.orderNum)+'" style="width:15px;height:15px;cursor:pointer"></td>';
         h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong>'+(dispatchedOrders[o.orderNum]?'<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ '+dispatchedOrders[o.orderNum]+'</div>':'')+' </td>';
-        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'</td>';
+        const _isCOD=o.payment&&o.payment.toLowerCase().includes('cash on delivery');
+        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span></td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
@@ -1410,10 +1473,11 @@ function renderUnconfirmed(){
       const lyingCut=short>0&&ps.lying>0;
       const withVendor=short>0&&ps.vendor>0&&ps.lying===0;
       const rowBg=isFirst?'#FFFBF0':'';
+      const isCOD = o.payment&&o.payment.toLowerCase().includes('cash on delivery');
       h+='<tr style="border-top:'+(isFirst&&idx>0?'2px solid var(--border)':'none')+';background:'+rowBg+'">';
       if(isFirst){
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:700;vertical-align:middle">'+o.orderNum+'</td>';
-        h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'</td>';
+        h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'<br><span style="'+(isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isCOD?'💵 COD':'✅ Prepaid')+'</span></td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;vertical-align:middle">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:600;color:#92400E;vertical-align:middle">'+daysText+'</td>';
       }
@@ -1606,14 +1670,16 @@ function renderPlanning(){
     h += '</td>';
 
     // Action
+    const vendorName = (window.vendorNames&&(window.vendorNames[r.code+'|'+r.size]||window.vendorNames[r.code]))||'';
+    const vendorLabel = vendorName ? ' ('+vendorName+')' : '';
     const action = r.short===0&&r.potentialShort===0?
       '<span style="color:#BBBBBB">—</span>':
       r.short===0?
       '<span style="background:#F3F4F6;color:#6B7280;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">👀 Watch</span>':
       r.vendor>=r.short&&r.vendor>0?
-      '<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
+      '<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up'+vendorLabel+'</span>':
       r.lying>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">🧵 Send to Vendor</span>':
-      r.vendor>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up</span>':
+      r.vendor>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">⏳ Follow Up'+vendorLabel+'</span>':
       '<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✂️ Cut First</span>';
     h += '<td style="padding:9px 12px;text-align:center">'+action+'</td>';
 
@@ -2318,29 +2384,85 @@ function printPackingSlips(mode){
 }
 
 // ============================================================
-// IN OFFICE
+// IN OFFICE — product search + multi-size entry
 // ============================================================
 window.officeInventory = {}; // {code: {size: qty}}
+window._selectedOfficeCode = '';
+
+function filterOfficeProducts(){
+  const q = (document.getElementById('officeSearch').value||'').toLowerCase().trim();
+  showOfficeDropdown(q);
+}
+
+function showOfficeDropdown(q){
+  const dd = document.getElementById('officeDropdown');
+  if(!q && q!=='') q = (document.getElementById('officeSearch').value||'').toLowerCase().trim();
+  const products = PRODUCT_IMAGES || {};
+  const entries = Object.entries(products);
+  const matches = q
+    ? entries.filter(([code,p])=>code.toLowerCase().includes(q)||(p.name&&p.name.toLowerCase().includes(q)))
+    : entries;
+  if(!matches.length){ dd.style.display='none'; return; }
+  dd.innerHTML = matches.slice(0,12).map(([code,p])=>`
+    <div onclick="selectOfficeProduct('${code}','${(p.name||code).replace(/'/g,"\\'")}') " style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:12px" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+      <img src="${p.data}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0">
+      <div><div style="font-weight:600">${p.name||code}</div><div style="color:#9CA3AF;font-size:10px;font-family:monospace">${code}</div></div>
+    </div>`).join('');
+  dd.style.display='block';
+}
+
+function hideOfficeDropdown(){
+  const dd = document.getElementById('officeDropdown');
+  if(dd) dd.style.display='none';
+}
+
+function selectOfficeProduct(code, name){
+  window._selectedOfficeCode = code;
+  document.getElementById('officeSearch').value = name + ' (' + code + ')';
+  document.getElementById('officeCode').value = code;
+  hideOfficeDropdown();
+  // Show size inputs
+  const SIZES = ['XS','S','M','L','XL','2XL','3XL'];
+  const wrap = document.getElementById('officeSizeInputs');
+  wrap.innerHTML = SIZES.map(sz=>`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:11px;font-weight:600;color:var(--ink)">${sz}</div>
+      <input type="number" min="0" value="" placeholder="0" id="officeQty_${sz}"
+        style="width:52px;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 4px;font-size:13px;font-family:inherit">
+    </div>`).join('');
+  document.getElementById('officeSizeEntry').style.display='block';
+}
+
+function clearOfficeForm(){
+  window._selectedOfficeCode = '';
+  document.getElementById('officeSearch').value = '';
+  document.getElementById('officeCode').value = '';
+  document.getElementById('officeSizeEntry').style.display='none';
+}
 
 function addOfficeEntry(){
   const code = document.getElementById('officeCode').value.trim().toUpperCase();
-  const size = document.getElementById('officeSize').value;
-  const qty = parseInt(document.getElementById('officeQty').value)||1;
-  if(!code||!size){alert('Please enter a style code and size.');return;}
-
-  // Check if this piece is needed by any order
+  if(!code){ alert('Please select a product first.'); return; }
+  const SIZES = ['XS','S','M','L','XL','2XL','3XL'];
+  let added = 0;
+  // Check if any size needed by orders
   const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
-  const needing=allOrders.filter(o=>o.items.some(i=>i.code===code&&i.finalSize===size));
-  if(needing.length===0 && (readyOrders.length||partialOrders.length)){
-    const go=confirm('⚠️ '+code+' '+size+' is not needed by any current order.\n\nAdd anyway? (or return to warehouse)');
-    if(!go) return;
-  }
-
-  if(!window.officeInventory[code]) window.officeInventory[code]={};
-  window.officeInventory[code][size]=(window.officeInventory[code][size]||0)+qty;
-  document.getElementById('officeCode').value='';
-  document.getElementById('officeSize').value='';
-  document.getElementById('officeQty').value='1';
+  SIZES.forEach(sz=>{
+    const inp = document.getElementById('officeQty_'+sz);
+    if(!inp) return;
+    const qty = parseInt(inp.value)||0;
+    if(qty <= 0) return;
+    // Warn if not needed
+    const neededBy = allOrders.filter(o=>o.items.some(i=>i.code===code&&i.finalSize===sz));
+    if(neededBy.length===0 && (readyOrders.length||partialOrders.length)){
+      if(!confirm('⚠️ '+code+' '+sz+' is not needed by any current order.\n\nAdd anyway?')) return;
+    }
+    if(!window.officeInventory[code]) window.officeInventory[code]={};
+    window.officeInventory[code][sz]=(window.officeInventory[code][sz]||0)+qty;
+    added++;
+  });
+  if(added===0){ alert('Please enter a quantity for at least one size.'); return; }
+  clearOfficeForm();
   renderOfficeTable();
   renderDispatch(); renderOrders();
 }
