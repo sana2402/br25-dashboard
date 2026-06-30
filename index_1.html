@@ -555,7 +555,7 @@ function getPriority(createdAt, notes){
   if(days>=3) return {level:'medium',label:'Medium',days,date:d};
   return {level:'new',label:'New',days,date:d};
 }
-function priOrder(l){return {urgent:0,critical:1,high:2,medium:3,new:4}[l]||5}
+function priOrder(l){const m={urgent:0,critical:1,high:2,medium:3,new:4};return (l in m)?m[l]:5;}
 
 // ============================================================
 // PARSE SIZE CHANGES
@@ -741,6 +741,29 @@ function parseQualityCheck(rows){
   const returnedCol=col('returned pcs')!==-1?col('returned pcs'):22;
   const sizeBreakupCol=col('size breakup')!==-1?col('size breakup'):27;
 
+  // Helper to safely get a numeric value — also tries col-1 in case ArrayFormula shifts columns
+  const getNum=(row,c)=>{
+    if(c===-1) return 0;
+    const v=row[c];
+    const n=Number(v);
+    if(!isNaN(n)&&v!==null&&v!==''&&typeof v!=='object') return n;
+    // Try col+1 in case ArrayFormula in col 1 shifted things
+    const v2=row[c+1];
+    const n2=Number(v2);
+    if(!isNaN(n2)&&v2!==null&&v2!==''&&typeof v2!=='object') return n2;
+    return 0;
+  };
+
+  // Helper to safely get string value — also tries col+1
+  const getStr=(row,c)=>{
+    if(c===-1) return '';
+    const v=row[c];
+    if(v!=null&&typeof v!=='object') return String(v).trim();
+    const v2=row[c+1];
+    if(v2!=null&&typeof v2!=='object') return String(v2).trim();
+    return '';
+  };
+
   const result={};
   for(let i=hRow+1;i<rows.length;i++){
     const row=rows[i];
@@ -750,20 +773,23 @@ function parseQualityCheck(rows){
     if(!codeMatch) continue;
     const code=codeMatch[1].trim().toUpperCase();
 
-    // Always compute pending as Total - Returned (formula cells not evaluated by XLSX.js)
-    const total=Number(row[totalCol])||0;
-    const returned=Number(row[returnedCol])||0;
-    const pending=Math.max(0, total - returned);
+    // Try header-based size col first, then scan whole row for size pattern
+    let sizeText=getStr(row,sizeBreakupCol);
+    if(!sizeText){
+      for(let c=0;c<row.length;c++){
+        if(c===styleCol||c===totalCol||c===returnedCol) continue;
+        const v=String(row[c]||'').trim();
+        if(v&&/^(XS|S|M|L|XL|2XL|3XL|XXL)\s*[-:\s]\s*\d+/i.test(v)){
+          sizeText=v; break;
+        }
+      }
+    }
 
-    if(pending<=0) continue;
-
-    const sizeText=row[sizeBreakupCol]?String(row[sizeBreakupCol]).split(String.fromCharCode(10)).join(','):'';
-    if(!result[code]) result[code]={};
-
+    // Parse size breakup first so we can derive total if Total Pieces is blank
+    const parsedSizes={};
+    let parsedTotal=0;
     if(sizeText&&sizeText.trim()){
-      const parsedSizes={};
-      let parsedTotal=0;
-      sizeText.split(',').forEach(part=>{
+      sizeText.split(/[,\n]/).forEach(part=>{
         part=part.trim();
         if(!part) return;
         const m=part.match(/^(XS|S|M|L|XL|2XL|3XL|XXL|small|medium|large|x-?small|x-?large|2x-?large|3x-?large)\s*[-:\s]\s*(\d+)/i);
@@ -772,6 +798,19 @@ function parseQualityCheck(rows){
         const qty=parseInt(m[2])||0;
         if(sz&&qty>0){parsedSizes[sz]=(parsedSizes[sz]||0)+qty;parsedTotal+=qty;}
       });
+    }
+
+    let total=getNum(row,totalCol);
+    const returned=getNum(row,returnedCol);
+    // If Total Pieces is blank/0 but size breakup has data, derive total from it
+    if(total<=0&&parsedTotal>0) total=parsedTotal;
+    const pending=Math.max(0, total - returned);
+
+    if(pending<=0) continue;
+
+    if(!result[code]) result[code]={};
+
+    if(parsedTotal>0){
       const scale=(parsedTotal>0&&pending<parsedTotal)?pending/parsedTotal:1;
       Object.entries(parsedSizes).forEach(([sz,qty])=>{
         const deduct=Math.min(Math.round(qty*scale),pending);
