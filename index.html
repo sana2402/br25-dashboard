@@ -147,7 +147,7 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('overview')">📊 Overview</div>
-  <div class="tab" onclick="switchTab('orders')">🛍 Orders</div>
+  <div class="tab" onclick="switchTab('orders')">🛍 Confirmed Orders</div>
   <div class="tab" onclick="switchTab('inventory')">📦 Inventory</div>
   <div class="tab" onclick="switchTab('production')">🏭 Production</div>
   <div class="tab" onclick="switchTab('dispatch')">🚚 Dispatch</div>
@@ -187,7 +187,9 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <!-- OVERVIEW -->
   <div class="tab-content active" id="tab-overview">
     <div class="cards">
-      <div class="card navy"><div class="clabel">Total Orders</div><div class="cnum" id="cTotal">—</div><div class="csub">unfulfilled</div></div>
+      <div class="card navy"><div class="clabel">Total Orders</div><div class="cnum" id="cTotal">—</div><div class="csub">confirmed + unconfirmed</div></div>
+      <div class="card green"><div class="clabel">Confirmed</div><div class="cnum" id="cConfirmed">—</div><div class="csub">confirmed orders</div></div>
+      <div class="card amber"><div class="clabel">Unconfirmed</div><div class="cnum" id="cUnconfirmed">—</div><div class="csub">awaiting confirmation</div></div>
       <div class="card green"><div class="clabel">Ready to Ship</div><div class="cnum" id="cReady">—</div><div class="csub">all items available</div></div>
       <div class="card amber"><div class="clabel">Partial</div><div class="cnum" id="cPartial">—</div><div class="csub">some items missing</div></div>
       <div class="card red"><div class="clabel">No Inventory</div><div class="cnum" id="cBlocked">—</div><div class="csub">no inventory</div></div>
@@ -555,7 +557,18 @@ function getPriority(createdAt, notes){
   if(days>=3) return {level:'medium',label:'Medium',days,date:d};
   return {level:'new',label:'New',days,date:d};
 }
-function priOrder(l){return {urgent:0,critical:1,high:2,medium:3,new:4}[l]||5}
+function priOrder(l){const m={urgent:0,critical:1,high:2,medium:3,new:4};return (l in m)?m[l]:5;}
+function typeOrder(t){return {shopify:0,exchange:1,influencer:2}[t]||0;}
+// Full sort: type tier first (within same urgency level), then age
+function fullPriOrder(a,b){
+  const al=priOrder(a.priority.level), bl=priOrder(b.priority.level);
+  if(al!==bl) return al-bl;
+  // Same urgency level — sort by type tier
+  const at=typeOrder(a.orderType||'shopify'), bt=typeOrder(b.orderType||'shopify');
+  if(at!==bt) return at-bt;
+  // Same type — older wins
+  return b.priority.days-a.priority.days;
+}
 
 // ============================================================
 // PARSE SIZE CHANGES
@@ -660,6 +673,42 @@ function parseRemovals(note){
   return removed;
 }
 
+
+// ============================================================
+// PARSE MANUAL ORDERS (Exchange + Influencer)
+// ============================================================
+function parseManualOrders(rows){
+  if(!rows||!rows.length) return [];
+  let hRow=rows.findIndex(r=>r&&r.some(v=>String(v||'').toLowerCase().includes('order no')));
+  if(hRow===-1) hRow=0;
+  const headers=rows[hRow].map(h=>String(h||'').trim().toLowerCase());
+  const col=n=>headers.findIndex(h=>h.includes(n));
+  const onCol=col('order no'),typeCol=col('type'),custCol=col('customer');
+  const codeCol=col('style code'),sizeCol=col('size'),qtyCol=col('qty');
+  const dateCol=col('date'),notesCol=col('notes');
+
+  const groups={};
+  for(let i=hRow+1;i<rows.length;i++){
+    const row=rows[i];
+    if(!row||!row[onCol]||!row[codeCol]) continue;
+    const on=String(row[onCol]).trim();
+    const type=String(row[typeCol]||'').trim().toLowerCase();
+    const orderType=type.includes('influencer')?'influencer':'exchange';
+    const customer=String(row[custCol]||'').trim();
+    const code=String(row[codeCol]).trim().toUpperCase();
+    const size=normalizeSize(String(row[sizeCol]||'').trim());
+    const qty=parseInt(row[qtyCol])||1;
+    const notes=String(row[notesCol]||'').trim();
+    let createdAt=row[dateCol];
+    if(typeof createdAt==='number') createdAt=new Date(Math.round((createdAt-25569)*86400*1000));
+    const priority=getPriority(createdAt,notes);
+    if(!groups[on]) groups[on]={orderNum:on,customer,orderType,priority,notes,items:[]};
+    if(priOrder(priority.level)<priOrder(groups[on].priority.level)) groups[on].priority=priority;
+    if(!size||!code) continue;
+    groups[on].items.push({code,finalSize:size,origSize:size,qty,itemName:prodName(code,code),note:notes,sizeChanged:false,styleChanged:false,priority,orderType});
+  }
+  return Object.values(groups);
+}
 
 function parseInventory(rows){
   // Headers in row 2 (index 1): Product Name, Product Code (BR25), XS, S, M, L, XL, 2XL, 3XL
@@ -773,16 +822,9 @@ function parseQualityCheck(rows){
     if(!codeMatch) continue;
     const code=codeMatch[1].trim().toUpperCase();
 
-    const total=getNum(row,totalCol);
-    const returned=getNum(row,returnedCol);
-    const pending=Math.max(0, total - returned);
-
-    if(pending<=0) continue;
-
     // Try header-based size col first, then scan whole row for size pattern
     let sizeText=getStr(row,sizeBreakupCol);
     if(!sizeText){
-      // Scan all cells for size breakup pattern like "XL-1, M-2"
       for(let c=0;c<row.length;c++){
         if(c===styleCol||c===totalCol||c===returnedCol) continue;
         const v=String(row[c]||'').trim();
@@ -792,11 +834,10 @@ function parseQualityCheck(rows){
       }
     }
 
-    if(!result[code]) result[code]={};
-
+    // Parse size breakup first so we can derive total if Total Pieces is blank
+    const parsedSizes={};
+    let parsedTotal=0;
     if(sizeText&&sizeText.trim()){
-      const parsedSizes={};
-      let parsedTotal=0;
       sizeText.split(/[,\n]/).forEach(part=>{
         part=part.trim();
         if(!part) return;
@@ -806,6 +847,19 @@ function parseQualityCheck(rows){
         const qty=parseInt(m[2])||0;
         if(sz&&qty>0){parsedSizes[sz]=(parsedSizes[sz]||0)+qty;parsedTotal+=qty;}
       });
+    }
+
+    let total=getNum(row,totalCol);
+    const returned=getNum(row,returnedCol);
+    // If Total Pieces is blank/0 but size breakup has data, derive total from it
+    if(total<=0&&parsedTotal>0) total=parsedTotal;
+    const pending=Math.max(0, total - returned);
+
+    if(pending<=0) continue;
+
+    if(!result[code]) result[code]={};
+
+    if(parsedTotal>0){
       const scale=(parsedTotal>0&&pending<parsedTotal)?pending/parsedTotal:1;
       Object.entries(parsedSizes).forEach(([sz,qty])=>{
         const deduct=Math.min(Math.round(qty*scale),pending);
@@ -1014,6 +1068,16 @@ function runDashboard(){
     qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
   }
 
+  // Parse Manual Orders (Exchange + Influencer) from tracker
+  window.manualOrders = [];
+  try {
+    const moSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('manual order'));
+    if(moSheetName){
+      const moRows = XLSX.utils.sheet_to_json(trackerWB.Sheets[moSheetName],{header:1,defval:null});
+      window.manualOrders = parseManualOrders(moRows);
+    }
+  } catch(e){ window.manualOrders = []; }
+
 
   // Update images from ERP if uploaded
   if(erpRaw){
@@ -1053,18 +1117,19 @@ function runDashboard(){
   const orderGroups={};
   allLines.forEach(item=>{
     if(!orderGroups[item.orderNum]) orderGroups[item.orderNum]=[];
-    orderGroups[item.orderNum].push(item);
+    orderGroups[item.orderNum].push({...item,orderType:'shopify'});
   });
 
-  // Sort by priority
+  // Sort Shopify orders using fullPriOrder
   const sorted = Object.keys(orderGroups).sort((a,b)=>{
-    const pa=orderGroups[a][0].priority, pb=orderGroups[b][0].priority;
-    const lvlDiff=priOrder(pa.level)-priOrder(pb.level);
-    return lvlDiff !== 0 ? lvlDiff : pb.days-pa.days; // older orders win tiebreak
+    const oa={priority:orderGroups[a][0].priority,orderType:'shopify'};
+    const ob={priority:orderGroups[b][0].priority,orderType:'shopify'};
+    return fullPriOrder(oa,ob);
   });
 
   readyOrders=[]; partialOrders=[]; blockedOrders=[]; window.scheduledOrders=[]; const scheduledOrders=[];
 
+  // Process Shopify orders first
   sorted.forEach(on=>{
     const items=orderGroups[on];
     const results=items.map(item=>{
@@ -1078,12 +1143,34 @@ function runDashboard(){
     const deliveryDate=items[0].deliveryDate?new Date(items[0].deliveryDate):null;
     const deliveryDateStr=items[0].deliveryDateStr||null;
     const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr,payment:paymentMap[on]||''};
+    const obj={orderNum:on,items:results,status,priority:items[0].priority,customer:items[0].customer,createdAt:items[0].createdAt,deliveryDate,deliveryDateStr,payment:paymentMap[on]||'',orderType:'shopify'};
     if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
     } else if(status==='partial'){
-      // Also deduct stock for what CAN be sent in partial orders to prevent double-allocation
+      results.forEach(item=>{ if(stockLeft[item.code]&&item.canSend>0) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
+      partialOrders.push(obj);
+    }
+    else blockedOrders.push(obj);
+  });
+
+  // Process Manual Orders (Exchange + Influencer) sorted by fullPriOrder
+  const manualSorted=[...(window.manualOrders||[])].sort((a,b)=>fullPriOrder(a,b));
+  manualSorted.forEach(o=>{
+    const results=o.items.map(item=>{
+      const avail=(stockLeft[item.code]&&stockLeft[item.code][item.finalSize]!=null)?stockLeft[item.code][item.finalSize]:0;
+      const canSend=Math.min(avail,item.qty);
+      const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
+      return {...item,avail,canSend,short:item.qty-canSend,withQC};
+    });
+    const allOk=results.every(r=>r.short===0);
+    const anyOk=results.some(r=>r.canSend>0);
+    const status=allOk?'ready':(anyOk?'partial':'blocked');
+    const obj={orderNum:o.orderNum,items:results,status,priority:o.priority,customer:o.customer,createdAt:null,deliveryDate:null,deliveryDateStr:null,payment:'',orderType:o.orderType,notes:o.notes};
+    if(status==='ready'){
+      results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
+      readyOrders.push(obj);
+    } else if(status==='partial'){
       results.forEach(item=>{ if(stockLeft[item.code]&&item.canSend>0) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       partialOrders.push(obj);
     }
@@ -1139,7 +1226,10 @@ function runDashboard(){
   // Cards
   const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
   const critCount=allOrders.filter(o=>o.priority.level==='critical').length;
-  document.getElementById('cTotal').textContent=allOrders.length+(window.scheduledOrders?window.scheduledOrders.length:0);
+  const unconfirmedCount=Object.keys(window._unconfirmedOrders||{}).length;
+  document.getElementById('cTotal').textContent=allOrders.length+unconfirmedCount;
+  document.getElementById('cConfirmed').textContent=allOrders.length;
+  document.getElementById('cUnconfirmed').textContent=unconfirmedCount;
   document.getElementById('cReady').textContent=readyOrders.length;
   document.getElementById('cPartial').textContent=partialOrders.length;
   document.getElementById('cBlocked').textContent=blockedOrders.length;
@@ -1186,15 +1276,36 @@ function prodName(code,fallback){
 // OVERVIEW
 // ============================================================
 function renderOverview(){
-  const all=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
-  let h='<div class="sec-title">All Orders by Priority <span class="stcount">'+all.length+'</span></div>';
+  const confirmed=[...readyOrders,...partialOrders,...blockedOrders].sort((a,b)=>fullPriOrder(a,b));
+  const unconfirmed=Object.values(window._unconfirmedOrders||{}).sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
+
+  let h='';
+
+  // Confirmed orders section
+  h+='<div class="sec-title">Confirmed Orders by Priority <span class="stcount">'+confirmed.length+'</span></div>';
   h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Items</th><th>Date</th></tr></thead><tbody>';
-  all.forEach(o=>{
+  confirmed.forEach(o=>{
     const date=(o.priority&&o.priority.date)?o.priority.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
     const items=o.items.map(i=>'<span class="code">'+i.code+'</span> <span class="size-badge'+(i.sizeChanged?' size-changed':'')+'">'+i.finalSize+'</span>').join(' ');
-    h+='<tr><td><strong>'+o.orderNum+'</strong></td><td style="font-size:11px">'+o.customer+'</td><td>'+priBadge(o.priority)+'</td><td>'+statusBadge(o.status)+'</td><td style="max-width:280px;white-space:normal">'+items+'</td><td class="code">'+date+'</td></tr>';
+    const typeBadge=o.orderType==='exchange'?' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?' <span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">IO</span>':'';
+    const urgentRow=o.priority.level==='urgent'?'background:#FFF5F5;':'';
+    h+='<tr style="'+urgentRow+'"><td><strong>'+o.orderNum+'</strong></td><td style="font-size:11px">'+o.customer+typeBadge+'</td><td>'+priBadge(o.priority)+'</td><td>'+statusBadge(o.status)+'</td><td style="max-width:280px;white-space:normal">'+items+'</td><td class="code">'+date+'</td></tr>';
   });
+  if(!confirmed.length) h+='<tr><td colspan="6"><div class="empty">No confirmed orders yet.</div></td></tr>';
   h+='</tbody></table></div>';
+
+  // Unconfirmed orders section
+  if(unconfirmed.length){
+    h+='<div class="sec-title" style="margin-top:24px">Unconfirmed Orders <span class="stcount">'+unconfirmed.length+'</span></div>';
+    h+='<div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px">These orders have not been confirmed by the customer yet.</div>';
+    h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Items</th></tr></thead><tbody>';
+    unconfirmed.forEach(o=>{
+      const items=o.items.map(i=>'<span class="code">'+i.code+'</span> <span class="size-badge">'+i.size+'</span>').join(' ');
+      h+='<tr><td><strong>'+o.orderNum+'</strong></td><td style="font-size:11px">'+o.customer+'</td><td>'+priBadge(o.priority)+'</td><td style="max-width:280px;white-space:normal">'+items+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
   document.getElementById('overviewTable').innerHTML=h;
 }
 
@@ -1330,60 +1441,96 @@ function renderProduction(){
 // ============================================================
 function renderDispatch(){
   const pf=document.getElementById('fDispatchPri').value;
-  let orders=[...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
+  let orders=[...readyOrders].sort((a,b)=>fullPriOrder(a,b));
   if(pf) orders=orders.filter(o=>o.priority.level===pf);
-  const qcHoldOnly=document.getElementById('filterQCHold')&&document.getElementById('filterQCHold').checked;
-  if(qcHoldOnly){
-    // Show partial orders where the ONLY reason for shortfall is QC pieces
-    const qcHoldOrders=[...partialOrders,...blockedOrders].filter(o=>{
-      return o.items.every(item=>{
-        if(item.short<=0) return true; // item is fine
-        // shortfall can be covered by QC pieces
-        const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
-        return withQC>=item.short;
-      });
-    }).sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
-    orders=qcHoldOrders; // show ONLY QC hold orders, not combined with ready
-  }
-  const totalUnits=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
-  let h='<div class="sec-title">✅ Ready to Dispatch <span class="stcount">'+orders.length+' orders · '+totalUnits+' units</span></div>';
+
+  // Build priority-based In Office allocation pool
+  // Higher priority orders get office pieces first
+  const officePool={};
+  Object.entries(window.officeInventory||{}).forEach(([code,sizes])=>{
+    officePool[code]={};
+    Object.entries(sizes).forEach(([sz,qty])=>{ officePool[code][sz]=qty; });
+  });
+  // Pre-allocate office pieces to orders in priority order
+  const officeAllocated={}; // {orderNum_code_size: qty allocated from office}
+  orders.forEach(o=>{
+    o.items.forEach(item=>{
+      const key=o.orderNum+'|'+item.code+'|'+item.finalSize;
+      const available=(officePool[item.code]&&officePool[item.code][item.finalSize])||0;
+      const alloc=Math.min(available,item.qty);
+      officeAllocated[key]=alloc;
+      if(alloc>0) officePool[item.code][item.finalSize]-=alloc;
+    });
+  });
+
+  // Split into dispatched (green, bottom) and pending (top)
+  const pendingOrders=orders.filter(o=>!dispatchedOrders[o.orderNum]);
+  const dispatchedList=orders.filter(o=>dispatchedOrders[o.orderNum]);
+  const allOrdered=[...pendingOrders,...dispatchedList];
+
+  const totalUnits=pendingOrders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+i.qty,0),0);
+  let h='<div class="sec-title">✅ Ready to Dispatch <span class="stcount">'+pendingOrders.length+' orders · '+totalUnits+' units</span>'+(dispatchedList.length?' <span style="color:#166534;font-size:12px;font-weight:400">· '+dispatchedList.length+' dispatched today</span>':'')+'</div>';
   h+='<div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">';
   h+='<button onclick="selectAllDispatch(true)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☑ Select All</button>';
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
   h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
+
   let prev='';
-  orders.forEach(o=>{
+  allOrdered.forEach(o=>{
+    const isDispatched=!!dispatchedOrders[o.orderNum];
+    const rowStyle=isDispatched?'background:#F0FDF4;opacity:0.8;':'';
     o.items.forEach(item=>{
       const isFirst=o.orderNum!==prev; prev=o.orderNum;
-      h+='<tr'+(isFirst?' class="order-sep"':'')+' >';
+      h+='<tr class="'+(isFirst?'order-sep ':'')+'" style="'+rowStyle+'">';
       if(isFirst){
-        h+='<td rowspan="'+(o.items.length)+'" style="text-align:center"><input type="checkbox" class="dispatch-chk" data-order="'+(o.orderNum)+'" style="width:15px;height:15px;cursor:pointer"></td>';
-        h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong>'+(dispatchedOrders[o.orderNum]?'<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ '+dispatchedOrders[o.orderNum]+'</div>':'')+' </td>';
+        h+='<td rowspan="'+o.items.length+'" style="text-align:center">';
+        if(isDispatched){
+          h+='<span style="font-size:18px">✅</span>';
+        } else {
+          h+='<input type="checkbox" class="dispatch-chk" data-order="'+o.orderNum+'" style="width:15px;height:15px;cursor:pointer">';
+        }
+        h+='</td>';
+        h+='<td rowspan="'+o.items.length+'"><strong>'+o.orderNum+'</strong>';
+        if(isDispatched) h+='<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px;font-weight:600">✅ '+dispatchedOrders[o.orderNum]+'</div>';
+        h+='</td>';
         const _isCOD=o.payment&&o.payment.toLowerCase().includes('cash on delivery');
-        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span></td>';
+        const _typeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':('<span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span>');
+        h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br>'+_typeBadge+'</td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
       }
-      h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
+      h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+(item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
       h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span></td>';
       h+='<td class="num"><strong>'+item.qty+'</strong></td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
-      const dispOffice=getOfficeQty(item.code,item.finalSize);
-      h+='<td class="num">'+(dispOffice>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600" title="In office — verify before dispatch">🏠 '+dispOffice+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
-      if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+(o.items.length)+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">📅 '+ds+'</td>':'<td rowspan="'+(o.items.length)+'" style="color:#BBBBBB">—</td>';}
-      // Shopify note cell
+      // In Office — priority allocated
+      const allocKey=o.orderNum+'|'+item.code+'|'+item.finalSize;
+      const allocQty=officeAllocated[allocKey]||0;
+      // Check if this order's office pieces have been dispatched
+      const officeEntry=window.officeInventory&&window.officeInventory[item.code]&&window.officeInventory[item.code][item.finalSize];
+      const dispatchedFromOffice=isDispatched&&allocQty>0;
+      h+='<td class="num">';
+      if(dispatchedFromOffice){
+        h+='<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">✅ '+allocQty+'</span>';
+      } else if(allocQty>0){
+        h+='<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600" title="Allocated from office">🏠 '+allocQty+'</span>';
+      } else {
+        h+='<span style="color:#BBBBBB">—</span>';
+      }
+      h+='</td>';
+      if(isFirst){const ds=o.deliveryDateStr;h+=ds?'<td rowspan="'+o.items.length+'" style="font-size:11px;font-weight:600;color:#1D4ED8;white-space:nowrap">📅 '+ds+'</td>':'<td rowspan="'+o.items.length+'" style="color:#BBBBBB">—</td>';}
       if(isFirst){
         const noteText=o.items[0].note||'';
-        h+='<td rowspan="'+(o.items.length)+'" style="font-size:10px;color:#6B7280;max-width:180px;word-wrap:break-word;padding:8px 10px;vertical-align:middle">'+(noteText?noteText:'<span style="color:#BBBBBB">—</span>')+'</td>';
+        h+='<td rowspan="'+o.items.length+'" style="font-size:10px;color:#6B7280;max-width:180px;word-wrap:break-word;padding:8px 10px;vertical-align:middle">'+(noteText?noteText:'<span style="color:#BBBBBB">—</span>')+'</td>';
       }
       h+='</tr>';
     });
   });
-  if(!orders.length) h+='<tr><td colspan="9"><div class="empty">No orders ready to dispatch.</div></td></tr>';
-  h+='</tbody><tfoot><tr><td colspan="6">TOTAL UNITS TO DISPATCH</td><td class="num">'+totalUnits+'</td></tr></tfoot></table></div>';
+  if(!allOrdered.length) h+='<tr><td colspan="13"><div class="empty">No orders ready to dispatch.</div></td></tr>';
+  h+='</tbody><tfoot><tr><td colspan="8">TOTAL UNITS TO DISPATCH</td><td class="num">'+totalUnits+'</td><td colspan="4"></td></tr></tfoot></table></div>';
   document.getElementById('dispatchTable').innerHTML=h;
 }
 
@@ -1508,10 +1655,11 @@ function renderUnconfirmed(){
       const withVendor=short>0&&ps.vendor>0&&ps.lying===0;
       const rowBg=isFirst?'#FFFBF0':'';
       const isCOD = o.payment&&o.payment.toLowerCase().includes('cash on delivery');
+      const _orderTypeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':('<span style="'+(isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isCOD?'💵 COD':'✅ Prepaid')+'</span>');
       h+='<tr style="border-top:'+(isFirst&&idx>0?'2px solid var(--border)':'none')+';background:'+rowBg+'">';
       if(isFirst){
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:700;vertical-align:middle">'+o.orderNum+'</td>';
-        h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'<br><span style="'+(isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isCOD?'💵 COD':'✅ Prepaid')+'</span></td>';
+        h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'<br>'+_orderTypeBadge+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;vertical-align:middle">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:600;color:#92400E;vertical-align:middle">'+daysText+'</td>';
       }
@@ -1699,12 +1847,17 @@ function renderPlanning(){
     h += '</td>';
 
     // With Vendor
+    const vendorName = (window.vendorNames&&(window.vendorNames[r.code+'|'+r.size]||window.vendorNames[r.code]))||'';
     h += '<td style="padding:9px 12px;text-align:center">';
-    h += r.vendor>0?'<span style="color:#3B82F6;font-weight:600">'+r.vendor+'</span>':'<span style="color:#BBBBBB">—</span>';
+    if(r.vendor>0){
+      h += '<span style="color:#3B82F6;font-weight:600">'+r.vendor+'</span>';
+      if(vendorName) h += '<div style="font-size:10px;color:#6B7280;margin-top:2px">'+vendorName+'</div>';
+    } else {
+      h += '<span style="color:#BBBBBB">—</span>';
+    }
     h += '</td>';
 
     // Action
-    const vendorName = (window.vendorNames&&(window.vendorNames[r.code+'|'+r.size]||window.vendorNames[r.code]))||'';
     const vendorLabel = vendorName ? ' ('+vendorName+')' : '';
     const action = r.short===0&&r.potentialShort===0?
       '<span style="color:#BBBBBB">—</span>':
