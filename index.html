@@ -1978,7 +1978,7 @@ function openDispatchModal(){
   if(checked.length===0){alert('Please select at least one order to dispatch.');return;}
 
   const selectedOrders = checked.map(cb=>cb.getAttribute('data-order'));
-  const orders = readyOrders.filter(o=>selectedOrders.includes(o.orderNum));
+  const orders = readyOrders.filter(o=>selectedOrders.includes(String(o.orderNum)));
 
   dispatchEditQtys = {};
   orders.forEach(o=>{
