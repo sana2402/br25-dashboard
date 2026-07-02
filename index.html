@@ -2069,8 +2069,8 @@ function confirmDispatch(){
     if(!ordersList.includes(orderNum)) ordersList.push(orderNum);
   });
   // Identify which confirmed orders are manual
-  const allManual=(window.manualOrders||[]).map(o=>o.orderNum);
-  ordersList.forEach(on=>{ if(allManual.includes(on)) manualOrderNums.push(on); });
+  const allManual=(window.manualOrders||[]).map(o=>String(o.orderNum).trim());
+  ordersList.forEach(on=>{ if(allManual.includes(String(on).trim())) manualOrderNums.push(String(on).trim()); });
 
   const SCRIPT_URL = window.APPS_SCRIPT_URL || '';
 
@@ -2093,6 +2093,7 @@ function confirmDispatch(){
   document.getElementById('dispatchStatus').innerHTML = '<span style="color:#92400E">Updating inventory...</span>';
 
   const payload = encodeURIComponent(JSON.stringify({action:'deductInventory',deductions,orders:ordersList,manualOrders:manualOrderNums,key:SECRET_KEY}));
+  console.log('Dispatching — ordersList:', ordersList, 'manualOrderNums:', manualOrderNums);
   const url = SCRIPT_URL + '?payload=' + payload;
 
   fetch(url, {method:'GET', mode:'no-cors'})
