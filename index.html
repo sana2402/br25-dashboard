@@ -1175,6 +1175,9 @@ function runDashboard(){
     const anyOk=results.some(r=>r.canSend>0);
     const status=allOk?'ready':(anyOk?'partial':'blocked');
     const obj={orderNum:o.orderNum,items:results,status,priority:o.priority,customer:o.customer,createdAt:null,deliveryDate:null,deliveryDateStr:null,payment:'',orderType:o.orderType,notes:o.notes};
+    // Update the original manualOrders entry so renderManualOrders shows correct avail/short
+    const moEntry = window.manualOrders.find(m=>m.orderNum===o.orderNum);
+    if(moEntry){ moEntry.items=results; moEntry.status=status; }
     if(status==='ready'){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
