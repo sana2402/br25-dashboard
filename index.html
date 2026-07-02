@@ -155,6 +155,7 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <div class="tab" onclick="switchTab('unconfirmed')" style="border-left:1px solid #2D3F5A">⏳ Unconfirmed</div>
   <div class="tab" onclick="switchTab('planning')">📋 Production Planning</div>
   <div class="tab" onclick="switchTab('inoffice')" style="border-left:1px solid #2D3F5A">🏠 In Office</div>
+  <div class="tab" onclick="switchTab('manualorders')" style="border-left:1px solid #2D3F5A">🔄 Manual Orders</div>
 </div>
 
 <div class="main">
@@ -308,6 +309,10 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
     <div id="officeTable"></div>
   </div>
 
+  <!-- MANUAL ORDERS TAB -->
+  <div class="tab-content" id="tab-manualorders">
+    <div id="manualOrdersTable"></div>
+  </div>
 
 </div><!-- end .main -->
 
@@ -478,7 +483,7 @@ function normalizeSize(s){
 // ============================================================
 // TAB
 // ============================================================
-const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','inoffice'];
+const TAB_NAMES = ['overview','orders','inventory','production','dispatch','packing','unconfirmed','planning','inoffice','manualorders'];
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TAB_NAMES[i]===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -685,13 +690,15 @@ function parseManualOrders(rows){
   const col=n=>headers.findIndex(h=>h.includes(n));
   const onCol=col('order no'),typeCol=col('type'),custCol=col('customer');
   const codeCol=col('style code'),sizeCol=col('size'),qtyCol=col('qty');
-  const dateCol=col('date'),notesCol=col('notes');
+  const dateCol=col('date'),notesCol=col('notes'),dispatchedCol=col('dispatched');
 
   const groups={};
   for(let i=hRow+1;i<rows.length;i++){
     const row=rows[i];
     if(!row||!row[onCol]||!row[codeCol]) continue;
     const on=String(row[onCol]).trim();
+    // Skip if already dispatched in the sheet
+    if(dispatchedCol!==-1&&row[dispatchedCol]&&String(row[dispatchedCol]).trim().toLowerCase()==='yes') continue;
     const type=String(row[typeCol]||'').trim().toLowerCase();
     const orderType=type.includes('influencer')?'influencer':'exchange';
     const customer=String(row[custCol]||'').trim();
@@ -1148,6 +1155,7 @@ function runDashboard(){
       results.forEach(item=>{ if(stockLeft[item.code]) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       readyOrders.push(obj);
     } else if(status==='partial'){
+      // Also deduct stock for what CAN be sent in partial orders to prevent double-allocation
       results.forEach(item=>{ if(stockLeft[item.code]&&item.canSend>0) stockLeft[item.code][item.finalSize]=Math.max(0,(stockLeft[item.code][item.finalSize]||0)-item.canSend); });
       partialOrders.push(obj);
     }
@@ -1242,7 +1250,7 @@ function runDashboard(){
 
   window.scheduledOrders=scheduledOrders;
   renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking('all'); renderUnconfirmed(); renderPlanning();
-  renderOfficeTable();
+  renderOfficeTable(); renderManualOrders();
   if(btn){ btn.textContent='▶ Generate'; btn.disabled=false; }
   } catch(err) {
     console.error('Dashboard error:', err);
@@ -2049,6 +2057,7 @@ function confirmDispatch(){
   // Build deduction payload: {code: {size: qty}}
   const deductions = {};
   const ordersList = [];
+  const manualOrderNums = []; // track which confirmed orders are manual (exchange/influencer)
   Object.entries(dispatchEditQtys).forEach(([key,qty])=>{
     if(qty<=0) return;
     const [orderNum,code,size] = key.split('|');
@@ -2056,11 +2065,13 @@ function confirmDispatch(){
     deductions[code][size] = (deductions[code][size]||0) + qty;
     if(!ordersList.includes(orderNum)) ordersList.push(orderNum);
   });
+  // Identify which confirmed orders are manual
+  const allManual=(window.manualOrders||[]).map(o=>o.orderNum);
+  ordersList.forEach(on=>{ if(allManual.includes(on)) manualOrderNums.push(on); });
 
   const SCRIPT_URL = window.APPS_SCRIPT_URL || '';
 
   if(!SCRIPT_URL){
-    // No Apps Script connected yet - show what would be deducted
     let msg = 'The following would be deducted from Final Inventory:\n\n';
     Object.entries(deductions).forEach(([code,sizes])=>{
       Object.entries(sizes).forEach(([size,qty])=>{
@@ -2078,24 +2089,26 @@ function confirmDispatch(){
   btn.disabled = true;
   document.getElementById('dispatchStatus').innerHTML = '<span style="color:#92400E">Updating inventory...</span>';
 
-  // Use no-cors mode for Google Apps Script from GitHub Pages
-  // Apps Script accepts GET with encoded payload
-  const payload = encodeURIComponent(JSON.stringify({action:'deductInventory',deductions,orders:ordersList,key:SECRET_KEY}));
+  const payload = encodeURIComponent(JSON.stringify({action:'deductInventory',deductions,orders:ordersList,manualOrders:manualOrderNums,key:SECRET_KEY}));
   const url = SCRIPT_URL + '?payload=' + payload;
 
   fetch(url, {method:'GET', mode:'no-cors'})
   .then(()=>{
-    // no-cors returns opaque response - we can't read it but request was sent
-    // Store dispatch timestamp
     const now=new Date();
     const timeStr=now.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
     const confirmedOrders=[...new Set(Object.keys(dispatchEditQtys).map(k=>k.split('|')[0]))];
     confirmedOrders.forEach(on=>{ dispatchedOrders[on]='Dispatched '+timeStr; });
+    // Mark manual orders as dispatched in memory — they'll be skipped on next reload via sheet
+    manualOrderNums.forEach(on=>{
+      const mo=window.manualOrders.find(o=>o.orderNum===on);
+      if(mo) mo._dispatched=true;
+    });
     document.getElementById('dispatchStatus').innerHTML='<span style="color:#166534">✅ Inventory updated in Google Sheets!</span>';
     showDispatchNotification(timeStr, confirmedOrders);
     btn.textContent='✓ Done';
     btn.style.background='#166534';
     renderDispatch();
+    renderManualOrders();
     setTimeout(()=>closeDispatchModal(), 3000);
   })
   .catch(err=>{
@@ -2571,8 +2584,62 @@ function printPackingSlips(mode){
 }
 
 // ============================================================
-// IN OFFICE — product search + multi-size entry
+// MANUAL ORDERS TAB
 // ============================================================
+function renderManualOrders(){
+  const wrap = document.getElementById('manualOrdersTable');
+  if(!wrap) return;
+  const all = window.manualOrders || [];
+  if(!all.length){
+    wrap.innerHTML='<div class="empty" style="padding:40px">No manual orders found.<br><br>Add a <strong>Manual Orders</strong> sheet to your Production Tracker with columns: Order No, Type, Customer, Style Code, Size, Qty, Date, Notes, Dispatched</div>';
+    return;
+  }
+
+  const exchanges = all.filter(o=>o.orderType==='exchange').sort((a,b)=>fullPriOrder(a,b));
+  const influencers = all.filter(o=>o.orderType==='influencer').sort((a,b)=>fullPriOrder(a,b));
+
+  const renderSection = (title, orders, color, bg, icon) => {
+    if(!orders.length) return '';
+    let h = '<div style="margin-bottom:24px">';
+    h += '<div class="sec-title" style="color:'+color+'">'+icon+' '+title+' <span class="stcount">'+orders.length+' orders</span></div>';
+    h += '<div class="table-wrap"><table><thead><tr>';
+    h += '<th>Order No</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num" style="color:#196F3D">In Hand</th><th class="num">Short</th><th>Notes</th></tr></thead><tbody>';
+    orders.forEach(o=>{
+      const isDispatched = o._dispatched || dispatchedOrders[o.orderNum];
+      o.items.forEach((item,idx)=>{
+        const isFirst = idx===0;
+        const rowStyle = isDispatched ? 'background:#F0FDF4;' : '';
+        h += '<tr style="'+rowStyle+'">';
+        if(isFirst){
+          h += '<td rowspan="'+o.items.length+'" style="font-weight:700">'+o.orderNum;
+          if(isDispatched) h += '<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ Dispatched</div>';
+          h += '</td>';
+          h += '<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="background:'+bg+';color:'+color+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(o.orderType==='exchange'?'EO':'IO')+'</span></td>';
+          h += '<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
+          h += '<td rowspan="'+o.items.length+'">'+statusBadge(o.status||'blocked')+'</td>';
+        }
+        h += '<td><div class="prod-cell">'+imgTag(item.code)+'<span class="prod-name">'+prodName(item.code,item.itemName)+'</span></div></td>';
+        h += '<td class="code">'+item.code+'</td>';
+        h += '<td class="num"><span class="size-badge">'+item.finalSize+'</span></td>';
+        h += '<td class="num">'+item.qty+'</td>';
+        h += '<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA');h+=';font-weight:600">'+(item.avail!==undefined?item.avail:'—')+'</td>';
+        const short = item.short||0;
+        h += '<td class="num"><strong style="color:'+(short>0?'#EF4444':'#196F3D')+'">'+(short>0?short:'✓')+'</strong></td>';
+        if(isFirst) h += '<td rowspan="'+o.items.length+'" style="font-size:11px;color:#6B7280">'+( o.notes||'—')+'</td>';
+        h += '</tr>';
+      });
+    });
+    h += '</tbody></table></div></div>';
+    return h;
+  };
+
+  let h = '';
+  h += renderSection('Exchange Orders', exchanges, '#92400E', '#FEF3C7', '🔄');
+  h += renderSection('Influencer Orders', influencers, '#6B21A8', '#F3E8FF', '🌟');
+  wrap.innerHTML = h;
+}
+
+
 window.officeInventory = {}; // {code: {size: qty}}
 window._selectedOfficeCode = '';
 
