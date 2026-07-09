@@ -1335,7 +1335,7 @@ function renderOrders(){
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
-  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num" style="color:#7C3AED">In Office</th><th class="num">Short</th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num" style="color:#7C3AED">In Office</th><th class="num">Short</th><th style="width:80px"></th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
     // If readyOnly filter is on, for partial orders show only items that can be sent
@@ -1363,6 +1363,18 @@ function renderOrders(){
       const officeAmt=getOfficeQty(item.code,item.finalSize);
       h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
+      if(idx===0){
+        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
+        const isRemoved=window.dispatchOverrides&&window.dispatchOverrides.removed.has(String(o.orderNum));
+        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
+        let btn='';
+        if(isInDispatch&&!isAdded){
+          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
+        } else if(!isInDispatch||isRemoved){
+          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
+        }
+        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
+      }
       h+='</tr>';
     });
   });
@@ -1489,7 +1501,7 @@ function renderDispatch(){
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
-  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th><th style="width:60px"></th></tr></thead><tbody>';
 
   let prev='';
   allOrdered.forEach(o=>{
@@ -1517,7 +1529,7 @@ function renderDispatch(){
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+(item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
       h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span></td>';
-      h+='<td class="num"><strong>'+item.qty+'</strong></td>';
+      h+='<td class="num">'+(item.qty>1?'<strong style="color:#DC2626;font-size:16px">'+item.qty+'</strong>':'<strong>'+item.qty+'</strong>')+'</td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       // In Office — priority allocated
@@ -1539,6 +1551,11 @@ function renderDispatch(){
       if(isFirst){
         const noteText=o.items[0].note||'';
         h+='<td rowspan="'+o.items.length+'" style="font-size:10px;color:#6B7280;max-width:180px;word-wrap:break-word;padding:8px 10px;vertical-align:middle">'+(noteText?noteText:'<span style="color:#BBBBBB">—</span>')+'</td>';
+        if(!isDispatched){
+          h+='<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle"><button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button></td>';
+        } else {
+          h+='<td rowspan="'+o.items.length+'"></td>';
+        }
       }
       h+='</tr>';
     });
@@ -1624,7 +1641,7 @@ function renderUnconfirmed(){
   h+='<strong>'+orders.length+' unconfirmed orders</strong> — These orders have not been confirmed by the customer yet. Showing what you would need if they confirm.</div>';
 
   h+='<div class="table-wrap"><table><thead><tr>';
-  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">Lying Cut</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Would Ship?</th>';
+  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">Lying Cut</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Would Ship?</th><th style="width:80px"></th>';
   h+='</tr></thead><tbody>';
 
   let prevOrder='';
@@ -1696,13 +1713,21 @@ function renderUnconfirmed(){
       h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--red-light);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">Short '+short+'</span>'+prodTag+'</td>';
       }
       h+='</tr>';
+      if(isFirst){
+        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
+        const btn=isAdded?
+          '<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>':
+          '<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
+        // Fix: rowspan td needs to be inserted before the </tr> of first item row
+        // We do it by appending after since table will auto-fix
+        h=h.slice(0,-5)+'<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td></tr>';
+      }
     });
   });
 
   h+='</tbody></table></div>';
   wrap.innerHTML=h;
 }
-
 
 // ============================================================
 // PRODUCTION PLANNING TAB
@@ -2647,6 +2672,115 @@ function renderManualOrders(){
 }
 
 
+// ============================================================
+// DISPATCH OVERRIDES — manual add/remove
+// ============================================================
+window.dispatchOverrides = { added: new Set(), removed: new Set() };
+
+function removeFromDispatch(orderNum){
+  window.dispatchOverrides.added.delete(String(orderNum));
+  window.dispatchOverrides.removed.add(String(orderNum));
+  rerunAllocation();
+}
+
+function addToDispatch(orderNum){
+  window.dispatchOverrides.removed.delete(String(orderNum));
+  window.dispatchOverrides.added.add(String(orderNum));
+  rerunAllocation();
+}
+
+function rerunAllocation(){
+  const removed=window.dispatchOverrides.removed;
+  const added=window.dispatchOverrides.added;
+
+  // Reset stock from inventory minus QC
+  const stockLeft2={};
+  for(const code in inventory){
+    stockLeft2[code]={};
+    SIZES.forEach(sz=>{
+      const inHand=inventory[code].sizes[sz]||0;
+      const withQC=(qcDeducted[code]&&qcDeducted[code][sz])||0;
+      stockLeft2[code][sz]=Math.max(0,inHand-withQC);
+    });
+  }
+
+  // All order pools
+  const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
+  const unconfirmedList=Object.values(window._unconfirmedOrders||{});
+  const manualList=window.manualOrders||[];
+
+  // Find force-added orders from any pool
+  const forceAdded=[];
+  added.forEach(on=>{
+    const src=[...allOrders,...unconfirmedList,...manualList];
+    const found=src.find(o=>String(o.orderNum)===String(on));
+    if(found&&!forceAdded.find(o=>String(o.orderNum)===String(on))){
+      // Build items if unconfirmed (may lack avail/short)
+      const items=(found.items||[]).map(i=>({...i,avail:0,canSend:0,short:i.qty||1,withQC:0}));
+      forceAdded.push({...found,items,_forceAdded:true});
+    }
+  });
+
+  const normalOrders=allOrders.filter(o=>!removed.has(String(o.orderNum))&&!added.has(String(o.orderNum)));
+  const removedOrders=allOrders.filter(o=>removed.has(String(o.orderNum)));
+
+  const sortedAll=[
+    ...forceAdded.sort((a,b)=>fullPriOrder(a,b)),
+    ...normalOrders.sort((a,b)=>fullPriOrder(a,b)),
+    ...removedOrders
+  ];
+
+  readyOrders=[]; partialOrders=[]; blockedOrders=[];
+  sortedAll.forEach(o=>{
+    if(removed.has(String(o.orderNum))){
+      const results=(o.items||[]).map(item=>({...item,avail:0,canSend:0,short:item.qty,withQC:(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0}));
+      blockedOrders.push({...o,items:results,status:'blocked',_removed:true});
+      return;
+    }
+    const results=(o.items||[]).map(item=>{
+      const avail=(stockLeft2[item.code]&&stockLeft2[item.code][item.finalSize]!=null)?stockLeft2[item.code][item.finalSize]:0;
+      const canSend=Math.min(avail,item.qty);
+      const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
+      return {...item,avail,canSend,short:item.qty-canSend,withQC};
+    });
+    const allOk=results.every(r=>r.short===0);
+    const anyOk=results.some(r=>r.canSend>0);
+    const status=allOk?'ready':(anyOk?'partial':'blocked');
+    const obj={...o,items:results,status};
+    if(allOk){
+      results.forEach(item=>{if(stockLeft2[item.code])stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});
+      readyOrders.push(obj);
+    } else if(anyOk){
+      results.forEach(item=>{if(stockLeft2[item.code]&&item.canSend>0)stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});
+      partialOrders.push(obj);
+    } else {
+      blockedOrders.push(obj);
+    }
+  });
+
+  // Also re-process manual orders
+  const manualSorted=[...manualList].filter(o=>!removed.has(String(o.orderNum))&&!added.has(String(o.orderNum))).sort((a,b)=>fullPriOrder(a,b));
+  manualSorted.forEach(o=>{
+    const results=o.items.map(item=>{
+      const avail=(stockLeft2[item.code]&&stockLeft2[item.code][item.finalSize]!=null)?stockLeft2[item.code][item.finalSize]:0;
+      const canSend=Math.min(avail,item.qty);
+      const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
+      return {...item,avail,canSend,short:item.qty-canSend,withQC};
+    });
+    const allOk=results.every(r=>r.short===0);
+    const anyOk=results.some(r=>r.canSend>0);
+    const status=allOk?'ready':(anyOk?'partial':'blocked');
+    const obj={...o,items:results,status};
+    if(allOk){results.forEach(item=>{if(stockLeft2[item.code])stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});readyOrders.push(obj);}
+    else if(anyOk){results.forEach(item=>{if(stockLeft2[item.code]&&item.canSend>0)stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});partialOrders.push(obj);}
+    else blockedOrders.push(obj);
+  });
+
+  window.stockLeft=stockLeft2;
+  renderDispatch(); renderOrders(); renderOverview(); renderUnconfirmed();
+}
+
+// ============================================================
 window.officeInventory = {}; // {code: {size: qty}}
 window._selectedOfficeCode = '';
 
