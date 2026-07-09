@@ -665,7 +665,32 @@ function parseSizeChanges(note){
 }
 
 // ============================================================
-// PARSE REMOVALS — "remove BR25-09-M" or "remove BR25-09 M" from notes
+// PARSE QTY OVERRIDES — "BR25-02-L-1" or "BR25-02-L qty 1" reduces qty
+// ============================================================
+function parseQtyOverrides(note){
+  const overrides={};
+  if(!note) return overrides;
+  // Format 1: BR25-02-L-1 (code-size-qty)
+  const re1=/(BR25-\d+(?:\s*T)?)\s*[-\s]\s*(XS|S|M|L|XL|2XL|3XL|XXL)\s*-\s*(\d+)/gi;
+  let m;
+  while((m=re1.exec(note))!==null){
+    const code=m[1].trim().toUpperCase();
+    const size=normalizeSize(m[2]);
+    const qty=parseInt(m[3]);
+    overrides[code+'|'+size]=qty;
+  }
+  // Format 2: BR25-02-L qty 1
+  const re2=/(BR25-\d+(?:\s*T)?)\s*[-\s]\s*(XS|S|M|L|XL|2XL|3XL|XXL)\s+qty\s+(\d+)/gi;
+  while((m=re2.exec(note))!==null){
+    const code=m[1].trim().toUpperCase();
+    const size=normalizeSize(m[2]);
+    const qty=parseInt(m[3]);
+    overrides[code+'|'+size]=qty;
+  }
+  return overrides;
+}
+
+
 // ============================================================
 function parseRemovals(note){
   // Returns Set of "CODE|SIZE" strings to remove
@@ -987,6 +1012,7 @@ function parseShopify(rows){
     }
     const {changes, styleChanges}=parseSizeChanges(om.notes);
     const removals=parseRemovals(om.notes);
+    const qtyOverrides=parseQtyOverrides(om.notes);
     // Check if this item has been removed via note ("remove BR25-09-M")
     if(removals.has(code+'|'+origSize)) continue;
 
@@ -1010,7 +1036,11 @@ function parseShopify(rows){
     const changed=finalSize!==origSize;
     const pri=getPriority(om.createdAt, om.notes);
     const payment=om.payment||'';
-    items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty,itemName:iName,
+    // Apply qty override if specified e.g. "BR25-02-L qty 1"
+    const overrideKey=code+'|'+finalSize;
+    const effectiveQty=qtyOverrides[overrideKey]!==undefined?Math.min(qtyOverrides[overrideKey],qty):qty;
+    if(effectiveQty<=0) continue;
+    items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty:effectiveQty,itemName:iName,
                 customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment});
   }
   // Build a payment lookup by order number for use in runDashboard
@@ -1350,6 +1380,17 @@ function renderOrders(){
         h+='<td rowspan="'+visibleItems.length+'" style="font-size:11px">'+o.customer+'</td>';
         h+='<td rowspan="'+visibleItems.length+'">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+visibleItems.length+'">'+statusBadge(o.status)+'</td>';
+        // Add button with rowspan in isFirst block so it spans all item rows correctly
+        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
+        const isRemoved=window.dispatchOverrides&&window.dispatchOverrides.removed.has(String(o.orderNum));
+        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
+        let btn='';
+        if(isInDispatch&&!isAdded){
+          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
+        } else {
+          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
+        }
+        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
@@ -1363,18 +1404,6 @@ function renderOrders(){
       const officeAmt=getOfficeQty(item.code,item.finalSize);
       h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
-      if(idx===0){
-        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
-        const isRemoved=window.dispatchOverrides&&window.dispatchOverrides.removed.has(String(o.orderNum));
-        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
-        let btn='';
-        if(isInDispatch&&!isAdded){
-          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
-        } else if(!isInDispatch||isRemoved){
-          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
-        }
-        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
-      }
       h+='</tr>';
     });
   });
@@ -1693,6 +1722,11 @@ function renderUnconfirmed(){
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'<br>'+_orderTypeBadge+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;vertical-align:middle">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:600;color:#92400E;vertical-align:middle">'+daysText+'</td>';
+        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
+        const ucBtn=isAdded?
+          '<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>':
+          '<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
+        h+='<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle">'+ucBtn+'</td>';
       }
       h+='<td style="padding:8px 12px;vertical-align:middle"><div style="display:flex;align-items:center;gap:8px">';
       const img=PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
@@ -1713,15 +1747,6 @@ function renderUnconfirmed(){
       h+='<td style="padding:8px 12px;text-align:center;vertical-align:middle"><span style="background:var(--red-light);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">Short '+short+'</span>'+prodTag+'</td>';
       }
       h+='</tr>';
-      if(isFirst){
-        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
-        const btn=isAdded?
-          '<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>':
-          '<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
-        // Fix: rowspan td needs to be inserted before the </tr> of first item row
-        // We do it by appending after since table will auto-fix
-        h=h.slice(0,-5)+'<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td></tr>';
-      }
     });
   });
 
