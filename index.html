@@ -101,19 +101,18 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 .filter-bar label{font-size:11px;color:var(--ink-muted)}
 
 /* PACKING */
-.packing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:24px}
-.slip{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)}
-.slip-hdr{background:var(--navy);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:flex-start}
-.slip-order{font-size:14px;font-weight:700}
-.slip-customer{font-size:10px;color:#9A9288;margin-top:2px}
-.slip-items{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
-.slip-item{display:flex;align-items:center;gap:8px;padding:5px;background:var(--bg);border-radius:5px}
-.slip-item img,.slip-item .si-no-img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:zoom-in;transition:transform .2s ease,box-shadow .2s ease}
-.slip-item img:hover{transform:scale(3.5);box-shadow:0 8px 32px rgba(0,0,0,0.25);z-index:100;position:relative;border-radius:8px}
-.si-no-img{display:flex;align-items:center;justify-content:center;background:var(--bg);font-size:18px}
-.si-name{font-size:11px;font-weight:600}.si-code{font-size:10px;color:var(--ink-muted);font-family:monospace}
-.si-size{font-size:12px;font-weight:700;color:var(--green);margin-top:1px}
-.slip-footer{padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px}
+.packing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:24px}
+.slip{background:#fff;border-radius:12px;border:2px solid #7a826b;overflow:hidden;box-shadow:0 2px 8px rgba(122,130,107,0.15);page-break-inside:avoid;break-inside:avoid}
+.slip-hdr{background:#7a826b;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start}
+.slip-order{font-size:18px;font-weight:800;letter-spacing:0.5px}
+.slip-customer{font-size:14px;color:rgba(255,255,255,0.9);margin-top:4px;font-weight:500}
+.slip-items{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.slip-item{display:flex;align-items:center;gap:12px;padding:8px;background:#f8f8f6;border-radius:8px;border:1px solid #e8e9e5}
+.slip-item img,.slip-item .si-no-img{width:72px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #d0d4c8;flex-shrink:0}
+.si-no-img{display:flex;align-items:center;justify-content:center;background:#f0f1ee;font-size:24px}
+.si-name{font-size:14px;font-weight:700;color:#2d2d2d;line-height:1.3}.si-code{font-size:11px;color:#7a826b;font-family:monospace;margin-top:2px;font-weight:600}
+.si-size{font-size:15px;font-weight:800;color:#7a826b;margin-top:4px;letter-spacing:0.5px}
+.slip-footer{padding:10px 16px;border-top:1px solid #e8e9e5;background:#f8f8f6;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#7a826b;font-weight:600}
 
 /* TABS */
 .tab-content{display:none}.tab-content.active{display:block}
@@ -131,10 +130,13 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 @media print{
   body *{visibility:hidden}
   #tab-packing,#tab-packing *{visibility:visible}
-  #tab-packing{position:fixed;top:0;left:0;width:100%;padding:16px}
+  #tab-packing{position:fixed;top:0;left:0;width:100%;padding:0}
   .header,.tabs,.upload-bar,.filter-bar,.btn,.btn-row{display:none!important}
-  .slip{break-inside:avoid}
-  .table-wrap{box-shadow:none;border:1px solid #ccc}
+  .packing-grid{display:block}
+  .slip{break-inside:avoid;page-break-inside:avoid;page-break-after:always;break-after:always;margin:0;border-radius:0;box-shadow:none;border:none;min-height:100vh;display:flex;flex-direction:column}
+  .slip-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .slip-item img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .packingModeLabel,.btn{display:none!important}
 }
 </style>
 </head>
@@ -263,7 +265,9 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <div class="tab-content" id="tab-packing">
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
       <button class="btn green" onclick="printPackingSlips('all')">🖨 Print All Ready</button>
-      <button class="btn" style="background:#065F46;color:#fff;border:none" onclick="printPackingSlips('office')">🏠 Print In Office Only</button>
+      <button class="btn" style="background:#7a826b;color:#fff;border:none" onclick="printPackingSlips('office')">🏠 Print In Office Only</button>
+      <button class="btn" style="background:#2d5a27;color:#fff;border:none" onclick="downloadPackingPDF('all')">⬇ Download PDF (All)</button>
+      <button class="btn" style="background:#1a3d17;color:#fff;border:none" onclick="downloadPackingPDF('office')">⬇ Download PDF (In Office)</button>
       <span id="packingModeLabel" style="font-size:12px;color:var(--ink-muted);margin-left:4px"></span>
     </div>
     <div id="packingSlips"></div>
@@ -1380,17 +1384,6 @@ function renderOrders(){
         h+='<td rowspan="'+visibleItems.length+'" style="font-size:11px">'+o.customer+'</td>';
         h+='<td rowspan="'+visibleItems.length+'">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+visibleItems.length+'">'+statusBadge(o.status)+'</td>';
-        // Add button with rowspan in isFirst block so it spans all item rows correctly
-        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
-        const isRemoved=window.dispatchOverrides&&window.dispatchOverrides.removed.has(String(o.orderNum));
-        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
-        let btn='';
-        if(isInDispatch&&!isAdded){
-          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
-        } else {
-          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
-        }
-        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
@@ -1404,6 +1397,17 @@ function renderOrders(){
       const officeAmt=getOfficeQty(item.code,item.finalSize);
       h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
+      if(isFirst){
+        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
+        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
+        let btn='';
+        if(isInDispatch&&!isAdded){
+          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
+        } else {
+          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
+        }
+        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
+      }
       h+='</tr>';
     });
   });
@@ -1635,17 +1639,16 @@ function renderPacking(mode){
   const slipLabel = mode==='office' ? '🏠 In Office' : '✅ Ready';
   let h='<div class="packing-grid">';
   orders.forEach(o=>{
-    const date=(o.priority&&o.priority.date)?o.priority.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
-    h+='<div class="slip"><div class="slip-hdr"><div><div class="slip-order">'+o.orderNum+'</div><div class="slip-customer">'+o.customer+'</div></div><div style="text-align:right">'+priBadge(o.priority)+'<div style="font-size:10px;color:#9A9288;margin-top:3px">'+date+'</div></div></div>';
+    h+='<div class="slip"><div class="slip-hdr"><div><div class="slip-order">'+o.orderNum+'</div><div class="slip-customer">'+o.customer+'</div></div><div style="text-align:right;font-size:12px;opacity:0.85">'+o.items.reduce((s,i)=>s+i.qty,0)+' pc(s)</div></div>';
     h+='<div class="slip-items">';
     o.items.forEach(item=>{
       const p=PRODUCT_IMAGES[item.code];
       h+='<div class="slip-item">';
       h+=p?'<img src="'+p.data+'" alt="">':'<div class="si-no-img">👗</div>';
-      h+='<div><div class="si-name">'+prodName(item.code,item.itemName)+'</div><div class="si-code">'+item.code+'</div><div class="si-size">'+item.finalSize+(item.sizeChanged?' <span style="font-size:9px;color:var(--purple)">(was '+item.origSize+')</span>':'')+' × '+item.qty+'</div></div>';
+      h+='<div><div class="si-name">'+prodName(item.code,item.itemName)+'</div><div class="si-code">'+item.code+'</div><div class="si-size">'+item.finalSize+(item.sizeChanged?' <span style="font-size:11px;color:#c0392b">(was '+item.origSize+')</span>':'')+' × '+item.qty+'</div></div>';
       h+='</div>';
     });
-    h+='</div><div class="slip-footer"><span>'+o.items.reduce((s,i)=>s+i.qty,0)+' item(s)</span><span class="status ready">'+slipLabel+'</span></div></div>';
+    h+='</div><div class="slip-footer"><span style="font-size:13px">Sana Gupta</span><span>'+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</span></div></div>';
   });
   if(!orders.length) h+='<div class="empty">'+(mode==='office'?'No orders fully covered by office inventory yet.':'No orders ready for packing.')+'</div>';
   h+='</div>';
@@ -2638,6 +2641,18 @@ function printPackingSlips(mode){
   renderPacking(mode);
   switchTab('packing');
   setTimeout(()=>window.print(),400);
+}
+
+function downloadPackingPDF(mode){
+  mode = mode || 'all';
+  renderPacking(mode);
+  switchTab('packing');
+  // Use print dialog which allows Save as PDF
+  setTimeout(()=>{
+    const lbl = document.getElementById('packingModeLabel');
+    if(lbl) lbl.textContent = 'Use your browser\'s print dialog → Save as PDF';
+    window.print();
+  }, 400);
 }
 
 // ============================================================
