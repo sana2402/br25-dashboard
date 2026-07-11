@@ -127,17 +127,7 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
 .inv-wrap{background:var(--surface);border-radius:10px;overflow:auto;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:24px;max-height:75vh}
 .inv-wrap thead th{position:sticky;top:0;z-index:10;background:var(--surface);box-shadow:0 1px 0 var(--border)}
 
-@media print{
-  body *{visibility:hidden}
-  #tab-packing,#tab-packing *{visibility:visible}
-  #tab-packing{position:fixed;top:0;left:0;width:100%;padding:0}
-  .header,.tabs,.upload-bar,.filter-bar,.btn,.btn-row{display:none!important}
-  .packing-grid{display:block}
-  .slip{break-inside:avoid;page-break-inside:avoid;page-break-after:always;break-after:always;margin:0;border-radius:0;box-shadow:none;border:none;min-height:100vh;display:flex;flex-direction:column}
-  .slip-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .slip-item img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .packingModeLabel,.btn{display:none!important}
-}
+@media print{body *{display:none}}
 </style>
 </head>
 <body>
@@ -183,7 +173,7 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
     </div>
     <div class="btn-row">
       <button class="btn green" onclick="runDashboard()">▶ Generate</button>
-      <button class="btn" onclick="printPackingSlips()">🖨 Print Slips</button>
+      <button class="btn" onclick="generatePackingPDF('all')">🖨 Print Slips</button>
     </div>
   </div>
 
@@ -264,11 +254,9 @@ tfoot td{background:var(--navy);color:#fff;padding:9px 12px;font-weight:700;font
   <!-- PACKING -->
   <div class="tab-content" id="tab-packing">
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-      <button class="btn green" onclick="printPackingSlips('all')">🖨 Print All Ready</button>
-      <button class="btn" style="background:#7a826b;color:#fff;border:none" onclick="printPackingSlips('office')">🏠 Print In Office Only</button>
-      <button class="btn" style="background:#2d5a27;color:#fff;border:none" onclick="downloadPackingPDF('all')">⬇ Download PDF (All)</button>
-      <button class="btn" style="background:#1a3d17;color:#fff;border:none" onclick="downloadPackingPDF('office')">⬇ Download PDF (In Office)</button>
-      <span id="packingModeLabel" style="font-size:12px;color:var(--ink-muted);margin-left:4px"></span>
+      <button class="btn green" onclick="generatePackingPDF('all')">⬇ Download PDF — All</button>
+      <button class="btn" style="background:#7a826b;color:#fff;border:none" onclick="generatePackingPDF('selected')">⬇ Download PDF — Selected</button>
+      <span style="font-size:12px;color:var(--ink-muted);margin-left:4px">Tick the slips you want to include</span>
     </div>
     <div id="packingSlips"></div>
   </div>
@@ -1289,7 +1277,7 @@ function runDashboard(){
   document.getElementById('cVendor').textContent=tVendor;
 
   window.scheduledOrders=scheduledOrders;
-  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking('all'); renderUnconfirmed(); renderPlanning();
+  renderOverview(); renderOrders(); renderInventory(); renderProduction(); renderDispatch(); renderPacking(); renderUnconfirmed(); renderPlanning();
   renderOfficeTable(); renderManualOrders();
   if(btn){ btn.textContent='▶ Generate'; btn.disabled=false; }
   } catch(err) {
@@ -1369,7 +1357,7 @@ function renderOrders(){
   if(sf) all=all.filter(o=>o.status===sf);
   if(pf) all=all.filter(o=>o.priority.level===pf);
   if(cf==='yes') all=all.filter(o=>o.items.some(i=>i.sizeChanged));
-  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num" style="color:#7C3AED">In Office</th><th class="num">Short</th><th style="width:80px"></th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num" style="color:#7C3AED">In Office</th><th class="num">Short</th></tr></thead><tbody>';
   let prev='';
   all.forEach(o=>{
     // If readyOnly filter is on, for partial orders show only items that can be sent
@@ -1397,17 +1385,7 @@ function renderOrders(){
       const officeAmt=getOfficeQty(item.code,item.finalSize);
       h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       h+='<td class="num"><strong style="color:'+fg+'">'+(item.short>0?item.short:'✓')+'</strong></td>';
-      if(isFirst){
-        const isInDispatch=readyOrders.some(r=>String(r.orderNum)===String(o.orderNum));
-        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
-        let btn='';
-        if(isInDispatch&&!isAdded){
-          btn='<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>';
-        } else {
-          btn='<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
-        }
-        h+='<td rowspan="'+visibleItems.length+'" style="text-align:center;vertical-align:middle">'+btn+'</td>';
-      }
+
       h+='</tr>';
     });
   });
@@ -1534,7 +1512,7 @@ function renderDispatch(){
   h+='<button onclick="selectAllDispatch(false)" style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit">☐ Deselect All</button>';
   h+='<button onclick="openDispatchModal()" style="background:#1A6B5A;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;margin-left:auto">📦 Confirm Dispatch</button>';
   h+='</div>';
-  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th><th style="width:60px"></th></tr></thead><tbody>';
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="chkAll" onclick="selectAllDispatch(this.checked)" style="cursor:pointer;width:15px;height:15px"></th><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Ordered</th><th class="num" style="color:#196F3D">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num" style="color:#7C3AED">In Office</th><th>Deliver After</th><th style="max-width:200px">Shopify Note</th></tr></thead><tbody>';
 
   let prev='';
   allOrdered.forEach(o=>{
@@ -1584,11 +1562,7 @@ function renderDispatch(){
       if(isFirst){
         const noteText=o.items[0].note||'';
         h+='<td rowspan="'+o.items.length+'" style="font-size:10px;color:#6B7280;max-width:180px;word-wrap:break-word;padding:8px 10px;vertical-align:middle">'+(noteText?noteText:'<span style="color:#BBBBBB">—</span>')+'</td>';
-        if(!isDispatched){
-          h+='<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle"><button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button></td>';
-        } else {
-          h+='<td rowspan="'+o.items.length+'"></td>';
-        }
+
       }
       h+='</tr>';
     });
@@ -1619,27 +1593,17 @@ function getOfficeDispatchableOrders(){
   return dispatchable;
 }
 
-function renderPacking(mode){
-  mode = mode || 'all';
-  let orders, label;
-  if(mode==='office'){
-    const hasOffice = Object.values(window.officeInventory||{}).some(s=>Object.values(s).some(q=>q>0));
-    if(!hasOffice){
-      document.getElementById('packingSlips').innerHTML='<div class="empty" style="padding:32px">No pieces logged in office yet.<br><br>Go to 🏠 In Office tab and add what the picker has brought in, then come back to print.</div>';
-      const lbl=document.getElementById('packingModeLabel'); if(lbl) lbl.textContent='';
-      return;
-    }
-    orders = getOfficeDispatchableOrders();
-    label = '🏠 Showing '+orders.length+' order(s) fully in office';
-  } else {
-    orders = [...readyOrders].sort((a,b)=>priOrder(a.priority.level)-priOrder(b.priority.level)||b.priority.days-a.priority.days);
-    label = 'Showing all '+orders.length+' ready order(s)';
-  }
-  const lbl=document.getElementById('packingModeLabel'); if(lbl) lbl.textContent=label;
-  const slipLabel = mode==='office' ? '🏠 In Office' : '✅ Ready';
+function renderPacking(){
+  const orders = [...readyOrders].sort((a,b)=>fullPriOrder(a,b));
+  const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   let h='<div class="packing-grid">';
   orders.forEach(o=>{
-    h+='<div class="slip"><div class="slip-hdr"><div><div class="slip-order">'+o.orderNum+'</div><div class="slip-customer">'+o.customer+'</div></div><div style="text-align:right;font-size:12px;opacity:0.85">'+o.items.reduce((s,i)=>s+i.qty,0)+' pc(s)</div></div>';
+    const totalPcs = o.items.reduce((s,i)=>s+i.qty,0);
+    h+='<div class="slip" style="position:relative">';
+    h+='<label style="position:absolute;top:10px;right:10px;z-index:10;cursor:pointer">';
+    h+='<input type="checkbox" class="slip-chk" data-order="'+o.orderNum+'" checked style="width:18px;height:18px;cursor:pointer;accent-color:#7a826b">';
+    h+='</label>';
+    h+='<div class="slip-hdr"><div><div class="slip-order">'+o.orderNum+'</div><div class="slip-customer">'+o.customer+'</div></div><div style="text-align:right;font-size:12px;opacity:0.85">'+totalPcs+' pc(s)</div></div>';
     h+='<div class="slip-items">';
     o.items.forEach(item=>{
       const p=PRODUCT_IMAGES[item.code];
@@ -1648,11 +1612,117 @@ function renderPacking(mode){
       h+='<div><div class="si-name">'+prodName(item.code,item.itemName)+'</div><div class="si-code">'+item.code+'</div><div class="si-size">'+item.finalSize+(item.sizeChanged?' <span style="font-size:11px;color:#c0392b">(was '+item.origSize+')</span>':'')+' × '+item.qty+'</div></div>';
       h+='</div>';
     });
-    h+='</div><div class="slip-footer"><span style="font-size:13px">Sana Gupta</span><span>'+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</span></div></div>';
+    h+='</div><div class="slip-footer"><span style="font-size:13px;font-weight:600">Sana Gupta</span><span>'+today+'</span></div>';
+    h+='</div>';
   });
-  if(!orders.length) h+='<div class="empty">'+(mode==='office'?'No orders fully covered by office inventory yet.':'No orders ready for packing.')+'</div>';
+  if(!orders.length) h+='<div class="empty">No orders ready for packing.</div>';
   h+='</div>';
   document.getElementById('packingSlips').innerHTML=h;
+}
+
+async function generatePackingPDF(mode){
+  renderPacking();
+  // Get orders to include
+  let orders;
+  if(mode==='selected'){
+    const checked=[...document.querySelectorAll('.slip-chk:checked')].map(c=>c.getAttribute('data-order'));
+    orders=[...readyOrders].filter(o=>checked.includes(String(o.orderNum)));
+  } else {
+    orders=[...readyOrders].sort((a,b)=>fullPriOrder(a,b));
+  }
+  if(!orders.length){alert('No slips selected.');return;}
+
+  const btn=event.target;
+  btn.textContent='⏳ Generating...';
+  btn.disabled=true;
+
+  try{
+    // Load jsPDF from CDN
+    if(!window.jspdf){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,H=297;
+    const brand=[122,130,107]; // #7a826b
+    const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+
+    for(let oi=0;oi<orders.length;oi++){
+      if(oi>0) doc.addPage();
+      const o=orders[oi];
+      const totalPcs=o.items.reduce((s,i)=>s+i.qty,0);
+
+      // Header bar
+      doc.setFillColor(...brand);
+      doc.rect(0,0,W,28,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(20);doc.setFont('helvetica','bold');
+      doc.text(String(o.orderNum),14,12);
+      doc.setFontSize(12);doc.setFont('helvetica','normal');
+      doc.text(o.customer,14,21);
+      doc.setFontSize(11);
+      doc.text(totalPcs+' pc(s)',W-14,12,{align:'right'});
+
+      // Items
+      let y=38;
+      for(const item of o.items){
+        const name=prodName(item.code,item.itemName);
+        const sizeText=item.finalSize+(item.sizeChanged?' (was '+item.origSize+')':'')+' × '+item.qty;
+
+        // Item card background
+        doc.setFillColor(248,248,246);
+        doc.roundedRect(12,y,W-24,28,2,2,'F');
+        doc.setDrawColor(216,217,213);
+        doc.roundedRect(12,y,W-24,28,2,2,'S');
+
+        // Product image
+        const p=PRODUCT_IMAGES[item.code];
+        if(p&&p.data){
+          try{
+            doc.addImage(p.data,'JPEG',16,y+2,18,24);
+          }catch(e){}
+        }
+
+        // Product text
+        doc.setTextColor(45,45,45);
+        doc.setFontSize(13);doc.setFont('helvetica','bold');
+        doc.text(name,40,y+10);
+        doc.setFontSize(10);doc.setFont('helvetica','normal');
+        doc.setTextColor(122,130,107);
+        doc.text(item.code,40,y+17);
+        doc.setFontSize(14);doc.setFont('helvetica','bold');
+        doc.setTextColor(...brand);
+        doc.text(sizeText,40,y+25);
+
+        y+=33;
+        if(y>H-30&&o.items.indexOf(item)<o.items.length-1){
+          doc.addPage();y=20;
+        }
+      }
+
+      // Footer
+      doc.setFillColor(248,248,246);
+      doc.rect(0,H-16,W,16,'F');
+      doc.setDrawColor(216,217,213);
+      doc.line(0,H-16,W,H-16);
+      doc.setTextColor(...brand);
+      doc.setFontSize(11);doc.setFont('helvetica','bold');
+      doc.text('Sana Gupta',14,H-6);
+      doc.setFont('helvetica','normal');
+      doc.text(today,W-14,H-6,{align:'right'});
+    }
+
+    doc.save('packing-slips-'+new Date().toISOString().slice(0,10)+'.pdf');
+  }catch(err){
+    alert('PDF generation failed: '+err.message);
+  }
+  btn.textContent=mode==='selected'?'⬇ Download PDF — Selected':'⬇ Download PDF — All';
+  btn.disabled=false;
 }
 
 // ============================================================
@@ -1673,7 +1743,7 @@ function renderUnconfirmed(){
   h+='<strong>'+orders.length+' unconfirmed orders</strong> — These orders have not been confirmed by the customer yet. Showing what you would need if they confirm.</div>';
 
   h+='<div class="table-wrap"><table><thead><tr>';
-  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">Lying Cut</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Would Ship?</th><th style="width:80px"></th>';
+  h+='<th>Order</th><th>Customer</th><th>Priority</th><th>Days Waiting</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th class="num">In Hand</th><th class="num" style="color:#D97706">Lying Cut</th><th class="num" style="color:#3B82F6">With Vendor</th><th class="num">Would Ship?</th>';
   h+='</tr></thead><tbody>';
 
   let prevOrder='';
@@ -1725,11 +1795,7 @@ function renderUnconfirmed(){
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:11px;vertical-align:middle">'+o.customer+'<br>'+_orderTypeBadge+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;vertical-align:middle">'+priBadge(o.priority)+'</td>';
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:600;color:#92400E;vertical-align:middle">'+daysText+'</td>';
-        const isAdded=window.dispatchOverrides&&window.dispatchOverrides.added.has(String(o.orderNum));
-        const ucBtn=isAdded?
-          '<button onclick="removeFromDispatch(\''+o.orderNum+'\')" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Remove</button>':
-          '<button onclick="addToDispatch(\''+o.orderNum+'\')" style="background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">➕ Dispatch</button>';
-        h+='<td rowspan="'+o.items.length+'" style="text-align:center;vertical-align:middle">'+ucBtn+'</td>';
+
       }
       h+='<td style="padding:8px 12px;vertical-align:middle"><div style="display:flex;align-items:center;gap:8px">';
       const img=PRODUCT_IMAGES&&PRODUCT_IMAGES[item.code];
@@ -2636,24 +2702,7 @@ function openDispatchReady(){
   document.getElementById('pickerModal').style.display = 'block';
 }
 
-function printPackingSlips(mode){
-  mode = mode || 'all';
-  renderPacking(mode);
-  switchTab('packing');
-  setTimeout(()=>window.print(),400);
-}
-
-function downloadPackingPDF(mode){
-  mode = mode || 'all';
-  renderPacking(mode);
-  switchTab('packing');
-  // Use print dialog which allows Save as PDF
-  setTimeout(()=>{
-    const lbl = document.getElementById('packingModeLabel');
-    if(lbl) lbl.textContent = 'Use your browser\'s print dialog → Save as PDF';
-    window.print();
-  }, 400);
-}
+// Old print functions replaced by generatePackingPDF above
 
 // ============================================================
 // MANUAL ORDERS TAB
@@ -2711,114 +2760,6 @@ function renderManualOrders(){
   wrap.innerHTML = h;
 }
 
-
-// ============================================================
-// DISPATCH OVERRIDES — manual add/remove
-// ============================================================
-window.dispatchOverrides = { added: new Set(), removed: new Set() };
-
-function removeFromDispatch(orderNum){
-  window.dispatchOverrides.added.delete(String(orderNum));
-  window.dispatchOverrides.removed.add(String(orderNum));
-  rerunAllocation();
-}
-
-function addToDispatch(orderNum){
-  window.dispatchOverrides.removed.delete(String(orderNum));
-  window.dispatchOverrides.added.add(String(orderNum));
-  rerunAllocation();
-}
-
-function rerunAllocation(){
-  const removed=window.dispatchOverrides.removed;
-  const added=window.dispatchOverrides.added;
-
-  // Reset stock from inventory minus QC
-  const stockLeft2={};
-  for(const code in inventory){
-    stockLeft2[code]={};
-    SIZES.forEach(sz=>{
-      const inHand=inventory[code].sizes[sz]||0;
-      const withQC=(qcDeducted[code]&&qcDeducted[code][sz])||0;
-      stockLeft2[code][sz]=Math.max(0,inHand-withQC);
-    });
-  }
-
-  // All order pools
-  const allOrders=[...readyOrders,...partialOrders,...blockedOrders];
-  const unconfirmedList=Object.values(window._unconfirmedOrders||{});
-  const manualList=window.manualOrders||[];
-
-  // Find force-added orders from any pool
-  const forceAdded=[];
-  added.forEach(on=>{
-    const src=[...allOrders,...unconfirmedList,...manualList];
-    const found=src.find(o=>String(o.orderNum)===String(on));
-    if(found&&!forceAdded.find(o=>String(o.orderNum)===String(on))){
-      // Build items if unconfirmed (may lack avail/short)
-      const items=(found.items||[]).map(i=>({...i,avail:0,canSend:0,short:i.qty||1,withQC:0}));
-      forceAdded.push({...found,items,_forceAdded:true});
-    }
-  });
-
-  const normalOrders=allOrders.filter(o=>!removed.has(String(o.orderNum))&&!added.has(String(o.orderNum)));
-  const removedOrders=allOrders.filter(o=>removed.has(String(o.orderNum)));
-
-  const sortedAll=[
-    ...forceAdded.sort((a,b)=>fullPriOrder(a,b)),
-    ...normalOrders.sort((a,b)=>fullPriOrder(a,b)),
-    ...removedOrders
-  ];
-
-  readyOrders=[]; partialOrders=[]; blockedOrders=[];
-  sortedAll.forEach(o=>{
-    if(removed.has(String(o.orderNum))){
-      const results=(o.items||[]).map(item=>({...item,avail:0,canSend:0,short:item.qty,withQC:(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0}));
-      blockedOrders.push({...o,items:results,status:'blocked',_removed:true});
-      return;
-    }
-    const results=(o.items||[]).map(item=>{
-      const avail=(stockLeft2[item.code]&&stockLeft2[item.code][item.finalSize]!=null)?stockLeft2[item.code][item.finalSize]:0;
-      const canSend=Math.min(avail,item.qty);
-      const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
-      return {...item,avail,canSend,short:item.qty-canSend,withQC};
-    });
-    const allOk=results.every(r=>r.short===0);
-    const anyOk=results.some(r=>r.canSend>0);
-    const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={...o,items:results,status};
-    if(allOk){
-      results.forEach(item=>{if(stockLeft2[item.code])stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});
-      readyOrders.push(obj);
-    } else if(anyOk){
-      results.forEach(item=>{if(stockLeft2[item.code]&&item.canSend>0)stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});
-      partialOrders.push(obj);
-    } else {
-      blockedOrders.push(obj);
-    }
-  });
-
-  // Also re-process manual orders
-  const manualSorted=[...manualList].filter(o=>!removed.has(String(o.orderNum))&&!added.has(String(o.orderNum))).sort((a,b)=>fullPriOrder(a,b));
-  manualSorted.forEach(o=>{
-    const results=o.items.map(item=>{
-      const avail=(stockLeft2[item.code]&&stockLeft2[item.code][item.finalSize]!=null)?stockLeft2[item.code][item.finalSize]:0;
-      const canSend=Math.min(avail,item.qty);
-      const withQC=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
-      return {...item,avail,canSend,short:item.qty-canSend,withQC};
-    });
-    const allOk=results.every(r=>r.short===0);
-    const anyOk=results.some(r=>r.canSend>0);
-    const status=allOk?'ready':(anyOk?'partial':'blocked');
-    const obj={...o,items:results,status};
-    if(allOk){results.forEach(item=>{if(stockLeft2[item.code])stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});readyOrders.push(obj);}
-    else if(anyOk){results.forEach(item=>{if(stockLeft2[item.code]&&item.canSend>0)stockLeft2[item.code][item.finalSize]=Math.max(0,(stockLeft2[item.code][item.finalSize]||0)-item.canSend);});partialOrders.push(obj);}
-    else blockedOrders.push(obj);
-  });
-
-  window.stockLeft=stockLeft2;
-  renderDispatch(); renderOrders(); renderOverview(); renderUnconfirmed();
-}
 
 // ============================================================
 window.officeInventory = {}; // {code: {size: qty}}
