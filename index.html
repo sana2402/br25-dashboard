@@ -2115,6 +2115,7 @@ function copyDispatchList(){
 }
 
 
+function selectAllDispatch(checked){
   document.querySelectorAll('.dispatch-chk').forEach(cb=>cb.checked=checked);
   const master = document.getElementById('chkAll');
   if(master) master.checked = checked;
