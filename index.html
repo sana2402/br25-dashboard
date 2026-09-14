@@ -726,7 +726,13 @@ function parseManualOrders(rows){
     // Skip if already dispatched in the sheet
     if(dispatchedCol!==-1&&row[dispatchedCol]&&String(row[dispatchedCol]).trim().toLowerCase()==='yes') continue;
     const type=String(row[typeCol]||'').trim().toLowerCase();
-    const orderType=type.includes('influencer')?'influencer':'exchange';
+    // Supports 4 order types now: Exchange, Influencer, Shopify Order, New
+    // Order. Falls back to 'exchange' for blank/unrecognized text so any
+    // existing rows with slightly different wording keep working as before.
+    const orderType=type.includes('influencer')?'influencer'
+                    :type.includes('shopify')?'manual_shopify'
+                    :type.includes('new')?'new_order'
+                    :'exchange';
     const customer=String(row[custCol]||'').trim();
     const code=String(row[codeCol]).trim().toUpperCase();
     const size=normalizeSize(String(row[sizeCol]||'').trim());
@@ -905,6 +911,44 @@ function parseQualityCheck(rows){
   return result;
 }
 
+function parseCustomiseOrders(rows){
+  // Columns: Date | Order No. | Name | Style No. | Size | Qty | Status | Ready
+  let hRow=rows.findIndex(r=>r&&r.some(v=>String(v||'').toLowerCase().includes('order no')));
+  if(hRow===-1) hRow=0;
+  const headers=(rows[hRow]||[]).map(h=>String(h||'').trim().toLowerCase());
+  const col=n=>headers.findIndex(h=>h.includes(n));
+  const dateCol=col('date'),orderCol=col('order no'),nameCol=col('name'),
+        styleCol=col('style no'),sizeCol=col('size'),qtyCol=col('qty'),
+        statusCol=col('status'),readyCol=col('ready');
+
+  // Normalize an order number to just its digits, so "#SG3319", "SG3319",
+  // and "3319" all match the same order regardless of how it was typed.
+  const normOrderNo=v=>String(v||'').replace(/\D/g,'');
+
+  const result={};
+  for(let i=hRow+1;i<rows.length;i++){
+    const row=rows[i];
+    if(!row) continue;
+    const rawOrder=row[orderCol];
+    const rawStyle=row[styleCol];
+    if(!rawOrder||!rawStyle) continue;
+    const orderKey=normOrderNo(rawOrder);
+    if(!orderKey) continue;
+    const styleMatch=String(rawStyle).trim().match(/(BR25-\d+(?:\s*T)?)/i);
+    if(!styleMatch) continue;
+    const code=styleMatch[1].replace(/\s+/g,' ').trim().toUpperCase();
+    const size=normalizeSize(String(row[sizeCol]||'').trim());
+    if(!size) continue;
+    const qty=Number(row[qtyCol])||1;
+    const status=statusCol!==-1?String(row[statusCol]||'').trim():'';
+    const readyRaw=readyCol!==-1?String(row[readyCol]||'').trim().toLowerCase():'';
+    const ready=readyRaw==='yes';
+    const key=orderKey+'|'+code+'|'+size;
+    result[key]={qty,status,ready,date:dateCol!==-1?row[dateCol]:null,name:nameCol!==-1?String(row[nameCol]||''):''};
+  }
+  return result;
+}
+
 function parseShopify(rows){
   let hRow=-1;
   for(let i=0;i<rows.length;i++){
@@ -969,7 +1013,7 @@ function parseShopify(rows){
     });
   }
 
-  const items=[]; last='';
+  const items=[]; const customItems=[]; last='';
   for(let i=hRow+1;i<rows.length;i++){
     const row=rows[i];
     const on=row[oCol]?String(row[oCol]).trim():last;
@@ -995,6 +1039,10 @@ function parseShopify(rows){
     const qty=Number(row[qtyCol])||1;
     const iName=iNameCol!==-1?String(row[iNameCol]||''):sku;
     const om=meta[on]||{};
+    // Detect customise/alter orders — these need entirely separate production
+    // (their own cutting/stitching) and must never touch or be counted
+    // against the style's regular stock pools.
+    const isCustomOrder=om.notes&&/customi[sz]e|alter/i.test(om.notes);
     const isConfirmed=om.notes&&om.notes.toLowerCase().includes('confirmed');
     const _dd=isConfirmed?parseDeliveryDate(om.notes):null;
     const deliveryDate=_dd?_dd.getTime():null; // store as timestamp for reliable comparison
@@ -1024,7 +1072,8 @@ function parseShopify(rows){
       if(!alreadyActive){
         const finalSize=styleSwap.newSize;
         const finalCode=styleSwap.newCode;
-        items.push({orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment:om.payment||''});
+        const swapObj={orderNum:on,code:finalCode,origCode:code,origSize,finalSize,sizeChanged:true,styleChanged:true,qty,itemName:iName,customer:om.customer,createdAt:om.createdAt,priority:getPriority(om.createdAt,om.notes),deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment:om.payment||'',isCustom:isCustomOrder};
+        if(isCustomOrder) customItems.push(swapObj); else items.push(swapObj);
       }
       continue;
     }
@@ -1038,13 +1087,14 @@ function parseShopify(rows){
     const overrideKey=code+'|'+finalSize;
     const effectiveQty=qtyOverrides[overrideKey]!==undefined?Math.min(qtyOverrides[overrideKey],qty):qty;
     if(effectiveQty<=0) continue;
-    items.push({orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty:effectiveQty,itemName:iName,
-                customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment});
+    const mainObj={orderNum:on,code,origCode:null,origSize,finalSize,sizeChanged:changed,styleChanged:false,qty:effectiveQty,itemName:iName,
+                customer:om.customer,createdAt:om.createdAt,priority:pri,deliveryDate,deliveryDateStr,isFutureDelivery,note:om.notes,payment,isCustom:isCustomOrder};
+    if(isCustomOrder) customItems.push(mainObj); else items.push(mainObj);
   }
   // Build a payment lookup by order number for use in runDashboard
   const paymentMap={};
   Object.keys(meta).forEach(on=>{ paymentMap[on]=meta[on].payment||''; });
-  return {items,paymentMap};
+  return {items,customItems,paymentMap};
 }
 
 // ============================================================
@@ -1117,6 +1167,19 @@ function runDashboard(){
     qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
   }
 
+  // Parse Customise Orders tab (tracks separate production for customise/alter
+  // requests). Falls back to empty if the tab doesn't exist yet, or if the
+  // live Google Sheets fetch hasn't been updated to include it — either way
+  // customise items just show as "not started" rather than breaking anything.
+  let customiseTrackingData = {};
+  if(trackerWB._fromSheets){
+    customiseTrackingData = parseCustomiseOrders(trackerWB.Sheets['Customise Orders']&&trackerWB.Sheets['Customise Orders']._rows||[]);
+  } else {
+    const custSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('customise')||n.toLowerCase().includes('customize'))||null;
+    customiseTrackingData = custSheetName ? parseCustomiseOrders(XLSX.utils.sheet_to_json(trackerWB.Sheets[custSheetName],{header:1,defval:null})) : {};
+  }
+  window.customiseTrackingData = customiseTrackingData;
+
   // Parse Manual Orders (Exchange + Influencer) from tracker
   window.manualOrders = [];
   try {
@@ -1162,7 +1225,7 @@ function runDashboard(){
 
 
   // Parse orders
-  const {items: allLines, paymentMap} = parseShopify(shopifyRaw);
+  const {items: allLines, customItems, paymentMap} = parseShopify(shopifyRaw);
   const orderGroups={};
   allLines.forEach(item=>{
     if(!orderGroups[item.orderNum]) orderGroups[item.orderNum]=[];
@@ -1228,6 +1291,41 @@ function runDashboard(){
       partialOrders.push(obj);
     }
     else blockedOrders.push(obj);
+  });
+
+  // Process Customise/Alter orders separately — these NEVER touch stockLeft
+  // or qcDeducted (regular stock pools). Each item's readiness comes only
+  // from the Customise Orders tracking sheet (matched by order+style+size).
+  window.customProductionNeeded=[];
+  const customGroups={};
+  customItems.forEach(item=>{
+    if(!customGroups[item.orderNum]) customGroups[item.orderNum]=[];
+    customGroups[item.orderNum].push(item);
+  });
+  const normOrderNo=v=>String(v||'').replace(/\D/g,'');
+  Object.keys(customGroups).forEach(on=>{
+    const groupItems=customGroups[on];
+    const decorated=groupItems.map(item=>{
+      const trackKey=normOrderNo(on)+'|'+item.code+'|'+item.finalSize;
+      const track=window.customiseTrackingData[trackKey]||null;
+      return {...item,avail:track&&track.ready?item.qty:0,canSend:track&&track.ready?item.qty:0,
+              short:track&&track.ready?0:item.qty,withQC:0,
+              customStatus:track?(track.status||'In progress'):'Not started',customReady:!!(track&&track.ready)};
+    });
+    const allReady=decorated.every(it=>it.customReady);
+    if(allReady){
+      const obj={orderNum:on,items:decorated,status:'ready',priority:decorated[0].priority,customer:decorated[0].customer,
+                 createdAt:decorated[0].createdAt,deliveryDate:decorated[0].deliveryDate,deliveryDateStr:decorated[0].deliveryDateStr,
+                 payment:decorated[0].payment,orderType:'custom'};
+      readyOrders.push(obj);
+    } else {
+      // Not fully ready yet — surface on the Production tab as its own list,
+      // never mixed into the regular "Needs to be Cut" table.
+      decorated.forEach(item=>{
+        window.customProductionNeeded.push({orderNum:on,customer:item.customer,priority:item.priority,
+          code:item.code,size:item.finalSize,qty:item.qty,status:item.customStatus,itemName:item.itemName});
+      });
+    }
   });
 
   // Production needs
@@ -1317,8 +1415,19 @@ function priBadge(p){
   const prefix=p.level==='urgent'?'🚨 ':'';
   return '<span class="pri '+p.level+'">'+prefix+p.label+' · '+ds+'</span>';
 }
-function statusBadge(s){
-  return '<span class="status '+s+'">'+(s==='ready'?'✅ Ready':s==='partial'?'⚠️ Partial':'❌ No Inventory')+'</span>';
+function statusBadge(s,items){
+  let label=s==='ready'?'✅ Ready':s==='partial'?'⚠️ Partial':'❌ No Inventory';
+  // If every short item in this order is only stuck because pieces are at
+  // QC (not genuinely absent), show "Awaiting QC" instead of "No Inventory"
+  // — otherwise it looks like fresh cutting/stitching is needed from
+  // scratch, when really it's just waiting on QC to clear existing stock.
+  if(s==='blocked'&&items&&items.length){
+    const shortItems=items.filter(it=>it.short>0);
+    if(shortItems.length&&shortItems.every(it=>(it.withQC||0)>0)){
+      label='🔬 Awaiting QC';
+    }
+  }
+  return '<span class="status '+s+'">'+label+'</span>';
 }
 function prodName(code,fallback){
   const p=PRODUCT_IMAGES[code];
@@ -1340,9 +1449,9 @@ function renderOverview(){
   confirmed.forEach(o=>{
     const date=(o.priority&&o.priority.date)?o.priority.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
     const items=o.items.map(i=>'<span class="code">'+i.code+'</span> <span class="size-badge'+(i.sizeChanged?' size-changed':'')+'">'+i.finalSize+'</span>').join(' ');
-    const typeBadge=o.orderType==='exchange'?' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?' <span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">IO</span>':'';
+    const typeBadge=o.orderType==='exchange'?' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?' <span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">IO</span>':o.orderType==='manual_shopify'?' <span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">SO</span>':o.orderType==='new_order'?' <span style="background:#DBEAFE;color:#1E40AF;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600">NEW</span>':'';
     const urgentRow=o.priority.level==='urgent'?'background:#FFF5F5;':'';
-    h+='<tr style="'+urgentRow+'"><td><strong>'+o.orderNum+'</strong></td><td style="font-size:11px">'+o.customer+typeBadge+'</td><td>'+priBadge(o.priority)+'</td><td>'+statusBadge(o.status)+'</td><td style="max-width:280px;white-space:normal">'+items+'</td><td class="code">'+date+'</td></tr>';
+    h+='<tr style="'+urgentRow+'"><td><strong>'+o.orderNum+'</strong></td><td style="font-size:11px">'+o.customer+typeBadge+'</td><td>'+priBadge(o.priority)+'</td><td>'+statusBadge(o.status,o.items)+'</td><td style="max-width:280px;white-space:normal">'+items+'</td><td class="code">'+date+'</td></tr>';
   });
   if(!confirmed.length) h+='<tr><td colspan="6"><div class="empty">No confirmed orders yet.</div></td></tr>';
   h+='</tbody></table></div>';
@@ -1388,7 +1497,7 @@ function renderOrders(){
         h+='<td rowspan="'+visibleItems.length+'"><strong>'+o.orderNum+'</strong></td>';
         h+='<td rowspan="'+visibleItems.length+'" style="font-size:11px">'+o.customer+'</td>';
         h+='<td rowspan="'+visibleItems.length+'">'+priBadge(o.priority)+'</td>';
-        h+='<td rowspan="'+visibleItems.length+'">'+statusBadge(o.status)+'</td>';
+        h+='<td rowspan="'+visibleItems.length+'">'+statusBadge(o.status,o.items)+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+( item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
@@ -1438,7 +1547,7 @@ function renderInventory(){
 }
 // ============================================================
 function renderProduction(){
-  const needsCut=productionNeeds.filter(p=>p.hand===0&&p.lying===0&&p.vendor===0);
+  const needsCut=productionNeeds.filter(p=>p.hand===0&&p.lying===0&&p.vendor===0&&(p.withQC||0)===0);
   // Vendor already covers shortfall - just follow up
   const vendorCovers=productionNeeds.filter(p=>p.vendor>=p.totalShort&&p.vendor>0);
   // Has lying cut but vendor doesn't fully cover - send more to vendor
@@ -1486,6 +1595,29 @@ function renderProduction(){
   h+=section('🧵 Send to Vendor — Lying Cut, Not Yet Stitched',sendToVendor,'var(--amber)','Pieces are cut and with you. Send to stitching vendor immediately.');
   h+=section('⏳ With Vendor — Awaiting Return',withVendor,'#3B82F6','Already given for stitching. Follow up with vendor.');
   h+=section('📋 Other Shortfalls',other,'var(--ink-muted)','');
+
+  // Customise / Alter orders — tracked entirely separately from regular
+  // stock. Never mixed into the sections above.
+  const customNeeded=window.customProductionNeeded||[];
+  if(customNeeded.length){
+    h+='<div class="sec-title" style="color:#7C3AED">🎨 Customise / Alter Orders — Needs Separate Production <span class="stcount">'+customNeeded.length+' items</span></div>';
+    h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">One-off customise/alter requests. Cut and stitched separately — do NOT fulfill from regular stock.</div>';
+    h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th class="num">Size</th><th class="num">Qty</th><th>Status</th></tr></thead><tbody>';
+    [...customNeeded].sort((a,b)=>fullPriOrder({priority:a.priority,orderType:'custom'},{priority:b.priority,orderType:'custom'})).forEach(it=>{
+      h+='<tr><td><strong>'+it.orderNum+'</strong></td>';
+      h+='<td style="font-size:11px">'+(it.customer||'')+'</td>';
+      h+='<td>'+priBadge(it.priority)+'</td>';
+      h+='<td><div class="prod-cell">'+imgTag(it.code)+'<span class="prod-name">'+prodName(it.code,it.itemName)+'</span></div></td>';
+      h+='<td class="num"><span class="size-badge">'+it.size+'</span></td>';
+      h+='<td class="num">'+it.qty+'</td>';
+      const statusColor=it.status==='Not started'?'#DC2626':'#92400E';
+      const statusBg=it.status==='Not started'?'#FEE2E2':'#FEF3C7';
+      h+='<td><span style="background:'+statusBg+';color:'+statusColor+';border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+it.status+'</span></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
   if(!h) h='<div class="empty">🎉 No production requirements — all orders can be fulfilled!</div>';
   document.getElementById('productionTable').innerHTML=h;
 }
@@ -1551,13 +1683,13 @@ function renderDispatch(){
         if(isDispatched) h+='<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px;font-weight:600">✅ '+dispatchedOrders[o.orderNum]+'</div>';
         h+='</td>';
         const _isCOD=o.payment&&o.payment.toLowerCase().includes('cash on delivery');
-        const _typeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':('<span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span>');
+        const _typeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':o.orderType==='custom'?'<span style="background:#EDE9FE;color:#5B21B6;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">🎨 Custom</span>':o.orderType==='manual_shopify'?'<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">SO</span>':o.orderType==='new_order'?'<span style="background:#DBEAFE;color:#1E40AF;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">NEW</span>':('<span style="'+(_isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(_isCOD?'💵 COD':'✅ Prepaid')+'</span>');
         h+='<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br>'+_typeBadge+'</td>';
         h+='<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
       }
       h+='<td><div class="prod-cell">'+imgTag(item.code)+'<div><div class="prod-name">'+prodName(item.code,item.itemName)+'</div>'+(item.sizeChanged?'<span class="status changed" style="font-size:9px">'+(item.styleChanged?"🔁 "+item.origCode+" "+item.origSize+"→"+item.code+" "+item.finalSize:"⚠️ "+item.origSize+"→"+item.finalSize)+'</span>':'')+'</div></div></td>';
       h+='<td class="code">'+item.code+'</td>';
-      h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span></td>';
+      h+='<td class="num"><span class="size-badge'+(item.sizeChanged?' size-changed':'')+'">'+item.finalSize+'</span>'+(item.isCustom?'<div style="font-size:9px;color:#7C3AED;font-weight:700;margin-top:2px">customised</div>':'')+'</td>';
       h+='<td class="num">'+(item.qty>1?'<strong style="color:#DC2626;font-size:16px">'+item.qty+'</strong>':'<strong>'+item.qty+'</strong>')+'</td>';
       h+='<td class="num" style="color:'+(item.avail>0?'#196F3D':'#AAAAAA')+';font-weight:600">'+item.avail+'</td>';
       h+='<td class="num">'+(item.withQC>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+item.withQC+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
@@ -1805,12 +1937,13 @@ function renderUnconfirmed(){
       };
       const canShip=Math.min(inHand,item.qty);
       const short=item.qty-canShip;
-      const needsCut=short>0&&ps.lying===0&&ps.vendor===0;
+      const withQC=(window.qcDeducted[item.code]&&window.qcDeducted[item.code][item.size])||0;
+      const needsCut=short>0&&ps.lying===0&&ps.vendor===0&&withQC===0;
       const lyingCut=short>0&&ps.lying>0;
       const withVendor=short>0&&ps.vendor>0&&ps.lying===0;
       const rowBg=isFirst?'#FFFBF0':'';
       const isCOD = o.payment&&o.payment.toLowerCase().includes('cash on delivery');
-      const _orderTypeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':('<span style="'+(isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isCOD?'💵 COD':'✅ Prepaid')+'</span>');
+      const _orderTypeBadge=o.orderType==='exchange'?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">EO</span>':o.orderType==='influencer'?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">IO</span>':o.orderType==='manual_shopify'?'<span style="background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">SO</span>':o.orderType==='new_order'?'<span style="background:#DBEAFE;color:#1E40AF;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">NEW</span>':('<span style="'+(isCOD?'background:#FEF3C7;color:#92400E':'background:#D1FAE5;color:#065F46')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isCOD?'💵 COD':'✅ Prepaid')+'</span>');
       h+='<tr style="border-top:'+(isFirst&&idx>0?'2px solid var(--border)':'none')+';background:'+rowBg+'">';
       if(isFirst){
         h+='<td rowspan="'+o.items.length+'" style="padding:8px 12px;font-size:12px;font-weight:700;vertical-align:middle">'+o.orderNum+'</td>';
@@ -2761,14 +2894,16 @@ function renderManualOrders(){
   if(!wrap) return;
   const all = window.manualOrders || [];
   if(!all.length){
-    wrap.innerHTML='<div class="empty" style="padding:40px">No manual orders found.<br><br>Add a <strong>Manual Orders</strong> sheet to your Production Tracker with columns: Order No, Type, Customer, Style Code, Size, Qty, Date, Notes, Dispatched</div>';
+    wrap.innerHTML='<div class="empty" style="padding:40px">No manual orders found.<br><br>Add a <strong>Manual Orders</strong> sheet to your Production Tracker with columns: Order No, Type, Customer, Style Code, Size, Qty, Date, Notes, Dispatched<br><br>Type can be: Exchange Order, Influencer Order, Shopify Order, or New Order</div>';
     return;
   }
 
   const exchanges = all.filter(o=>o.orderType==='exchange').sort((a,b)=>fullPriOrder(a,b));
   const influencers = all.filter(o=>o.orderType==='influencer').sort((a,b)=>fullPriOrder(a,b));
+  const shopifyManual = all.filter(o=>o.orderType==='manual_shopify').sort((a,b)=>fullPriOrder(a,b));
+  const newOrders = all.filter(o=>o.orderType==='new_order').sort((a,b)=>fullPriOrder(a,b));
 
-  const renderSection = (title, orders, color, bg, icon) => {
+  const renderSection = (title, orders, color, bg, icon, shortCode) => {
     if(!orders.length) return '';
     let h = '<div style="margin-bottom:24px">';
     h += '<div class="sec-title" style="color:'+color+'">'+icon+' '+title+' <span class="stcount">'+orders.length+' orders</span></div>';
@@ -2784,9 +2919,9 @@ function renderManualOrders(){
           h += '<td rowspan="'+o.items.length+'" style="font-weight:700">'+o.orderNum;
           if(isDispatched) h += '<div style="font-size:10px;color:#166534;background:#D1FAE5;border-radius:3px;padding:1px 6px;margin-top:3px">✅ Dispatched</div>';
           h += '</td>';
-          h += '<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="background:'+bg+';color:'+color+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(o.orderType==='exchange'?'EO':'IO')+'</span></td>';
+          h += '<td rowspan="'+o.items.length+'" style="font-size:11px">'+o.customer+'<br><span style="background:'+bg+';color:'+color+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+shortCode+'</span></td>';
           h += '<td rowspan="'+o.items.length+'">'+priBadge(o.priority)+'</td>';
-          h += '<td rowspan="'+o.items.length+'">'+statusBadge(o.status||'blocked')+'</td>';
+          h += '<td rowspan="'+o.items.length+'">'+statusBadge(o.status||'blocked',o.items)+'</td>';
         }
         h += '<td><div class="prod-cell">'+imgTag(item.code)+'<span class="prod-name">'+prodName(item.code,item.itemName)+'</span></div></td>';
         h += '<td class="code">'+item.code+'</td>';
@@ -2804,8 +2939,10 @@ function renderManualOrders(){
   };
 
   let h = '';
-  h += renderSection('Exchange Orders', exchanges, '#92400E', '#FEF3C7', '🔄');
-  h += renderSection('Influencer Orders', influencers, '#6B21A8', '#F3E8FF', '🌟');
+  h += renderSection('Exchange Orders', exchanges, '#92400E', '#FEF3C7', '🔄', 'EO');
+  h += renderSection('Influencer Orders', influencers, '#6B21A8', '#F3E8FF', '🌟', 'IO');
+  h += renderSection('Shopify Orders (Manual)', shopifyManual, '#065F46', '#D1FAE5', '🛍️', 'SO');
+  h += renderSection('New Orders', newOrders, '#1E40AF', '#DBEAFE', '🆕', 'NEW');
   wrap.innerHTML = h;
 }
 
