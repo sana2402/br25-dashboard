@@ -934,23 +934,24 @@ function parseQualityCheck(rows){
 }
 
 function parseCustomiseOrders(rows){
-  // Columns: Date | Order No. | Name | Style No. | Size | Qty | Status | Ready | Shipped
+  // Columns: Date | Order No. | Name | Style No. | Size | Qty | Status | Ready | Shipped | Notes
   let hRow=rows.findIndex(r=>r&&r.some(v=>String(v||'').toLowerCase().includes('order no')));
   if(hRow===-1) hRow=0;
   const headers=(rows[hRow]||[]).map(h=>String(h||'').trim().toLowerCase());
   const col=n=>headers.findIndex(h=>h.includes(n));
   const dateCol=col('date'),orderCol=col('order no'),nameCol=col('name'),
         styleCol=col('style no'),sizeCol=col('size'),qtyCol=col('qty'),
-        statusCol=col('status'),readyCol=col('ready'),shippedCol=col('shipped');
+        statusCol=col('status'),readyCol=col('ready'),shippedCol=col('shipped'),
+        notesCol=col('notes');
 
   // Normalize an order number to just its digits, so "#SG3319", "SG3319",
-  // and "3319" all match the same order regardless of how it was typed.
+  // and "3319" all count as the same order regardless of how it was typed.
   const normOrderNo=v=>String(v||'').replace(/\D/g,'');
 
-  const trackingMap={};
-  const standaloneRows=[]; // rows whose Order No. contains "customise"/"customize" —
-                            // these have no real Shopify order at all (taken offline)
-                            // and need to be surfaced directly from this sheet.
+  // EVERY valid row in the tab is returned — each one is shown on the
+  // Production tab (unless Shipped). Rows that share an order number with a
+  // Shopify customise order are merged with it later, so nothing shows twice.
+  const sheetRows=[];
   for(let i=hRow+1;i<rows.length;i++){
     const row=rows[i];
     if(!row) continue;
@@ -958,7 +959,9 @@ function parseCustomiseOrders(rows){
     const rawStyle=row[styleCol];
     if(!rawOrder||!rawStyle) continue;
     const orderText=String(rawOrder).trim();
-    const orderKey=normOrderNo(rawOrder);
+    // Falls back to the text itself if an order number has no digits at all,
+    // so such a row is never silently dropped.
+    const orderKey=normOrderNo(rawOrder)||orderText.toLowerCase().replace(/\s+/g,'');
     if(!orderKey) continue;
     const styleMatch=String(rawStyle).trim().match(/(BR25-\d+(?:\s*T)?)/i);
     if(!styleMatch) continue;
@@ -967,22 +970,14 @@ function parseCustomiseOrders(rows){
     if(!size) continue;
     const qty=Number(row[qtyCol])||1;
     const status=statusCol!==-1?String(row[statusCol]||'').trim():'';
-    const readyRaw=readyCol!==-1?String(row[readyCol]||'').trim().toLowerCase():'';
-    const ready=readyRaw==='yes';
-    const shippedRaw=shippedCol!==-1?String(row[shippedCol]||'').trim().toLowerCase():'';
-    const shipped=shippedRaw==='yes';
+    const ready=readyCol!==-1&&String(row[readyCol]||'').trim().toLowerCase()==='yes';
+    const shipped=shippedCol!==-1&&String(row[shippedCol]||'').trim().toLowerCase()==='yes';
     const name=nameCol!==-1?String(row[nameCol]||''):'';
     const date=dateCol!==-1?row[dateCol]:null;
-
-    const key=orderKey+'|'+code+'|'+size;
-    trackingMap[key]={qty,status,ready,shipped,date,name};
-
-    const isStandalone=/customi[sz]e/i.test(orderText);
-    if(isStandalone){
-      standaloneRows.push({orderText,orderKey,name,code,size,qty,status,ready,shipped,date});
-    }
+    const notes=notesCol!==-1&&row[notesCol]!=null?String(row[notesCol]).trim():'';
+    sheetRows.push({orderText,orderKey,name,code,size,qty,status,ready,shipped,date,notes});
   }
-  return {trackingMap, standaloneRows};
+  return {sheetRows};
 }
 
 function parseShopify(rows){
@@ -1047,6 +1042,34 @@ function parseShopify(rows){
         });
       });
     });
+  }
+
+  // Customise/alter line items on orders Shopify shows as FULFILLED (shipped).
+  // The main loop below skips fulfilled lines entirely, so without this the
+  // dashboard would never learn such an order has shipped and its row in the
+  // Customise Orders tab would keep showing until "Shipped" is typed there.
+  // Keys are "<order digits>|<style code>". Only orders whose Shopify notes say
+  // customise/alter count, so an offline order numbered like some old, unrelated
+  // Shopify order can never be hidden by accident.
+  const fulfilledCustomKeys=[];
+  {
+    const fulfilledOrders={}; let lo='';
+    for(let i=hRow+1;i<rows.length;i++){
+      const row=rows[i];
+      const on=row[oCol]?String(row[oCol]).trim():lo;
+      if(on) lo=on;
+      if(statusCol!==-1&&String(row[statusCol]||'').toLowerCase()==='fulfilled') fulfilledOrders[on]=true;
+    }
+    lo='';
+    for(let i=hRow+1;i<rows.length;i++){
+      const row=rows[i];
+      const on=row[oCol]?String(row[oCol]).trim():lo;
+      if(on) lo=on;
+      if(!fulfilledOrders[on]) continue;
+      const fm=String(row[skuCol]||'').trim().match(/^(BR25-\d+(?:\s*T)?)-([A-Z0-9XL23]+)$/i);
+      const nt=(meta[on]||{}).notes;
+      if(fm&&nt&&/customi[sz]e|alter/i.test(nt)) fulfilledCustomKeys.push(String(on).replace(/\D/g,'')+'|'+fm[1].trim().toUpperCase());
+    }
   }
 
   const items=[]; const customItems=[]; last='';
@@ -1130,7 +1153,7 @@ function parseShopify(rows){
   // Build a payment lookup by order number for use in runDashboard
   const paymentMap={};
   Object.keys(meta).forEach(on=>{ paymentMap[on]=meta[on].payment||''; });
-  return {items,customItems,paymentMap};
+  return {items,customItems,fulfilledCustomKeys,paymentMap};
 }
 
 // ============================================================
@@ -1203,21 +1226,17 @@ function runDashboard(){
     qcData = qcSheetName ? parseQualityCheck(XLSX.utils.sheet_to_json(trackerWB.Sheets[qcSheetName],{header:1,defval:null})) : {};
   }
 
-  // Parse Customise Orders tab (tracks separate production for customise/alter
-  // requests, AND surfaces orders taken fully offline — no Shopify order at
-  // all — when "customise"/"customize" appears in the Order No. cell).
-  // Falls back to empty if the tab doesn't exist yet, or if the live Google
-  // Sheets fetch hasn't been updated to include it — either way customise
-  // items just show as "not started" rather than breaking anything.
-  let customiseParsed = {trackingMap:{}, standaloneRows:[]};
+  // Parse Customise Orders tab — every row written here is shown on the
+  // Production tab (until it is marked Shipped). Falls back to empty if the
+  // tab doesn't exist yet, or if the live Google Sheets fetch doesn't include it.
+  let customiseParsed = {sheetRows:[]};
   if(trackerWB._fromSheets){
     customiseParsed = parseCustomiseOrders(trackerWB.Sheets['Customise Orders']&&trackerWB.Sheets['Customise Orders']._rows||[]);
   } else {
     const custSheetName = trackerWB.SheetNames.find(n=>n.toLowerCase().includes('customise')||n.toLowerCase().includes('customize'))||null;
-    customiseParsed = custSheetName ? parseCustomiseOrders(XLSX.utils.sheet_to_json(trackerWB.Sheets[custSheetName],{header:1,defval:null})) : {trackingMap:{}, standaloneRows:[]};
+    customiseParsed = custSheetName ? parseCustomiseOrders(XLSX.utils.sheet_to_json(trackerWB.Sheets[custSheetName],{header:1,defval:null})) : {sheetRows:[]};
   }
-  window.customiseTrackingData = customiseParsed.trackingMap;
-  window.customiseStandaloneRows = customiseParsed.standaloneRows;
+  window.customiseSheetRows = customiseParsed.sheetRows;
 
   // Parse Manual Orders (Exchange + Influencer + Shopify Order + New Order) from tracker
   window.manualOrders = [];
@@ -1269,7 +1288,7 @@ function runDashboard(){
 
 
   // Parse orders
-  const {items: allLines, customItems, paymentMap} = parseShopify(shopifyRaw);
+  const {items: allLines, customItems, fulfilledCustomKeys, paymentMap} = parseShopify(shopifyRaw);
   const orderGroups={};
   allLines.forEach(item=>{
     if(!orderGroups[item.orderNum]) orderGroups[item.orderNum]=[];
@@ -1357,38 +1376,56 @@ function runDashboard(){
 
   // Process Customise/Alter orders separately — these NEVER touch stockLeft
   // or qcDeducted (regular stock pools).
+  //
+  // Two sources feed one list, de-duplicated by order number (digits only, so
+  // 3464 / SG3464 / #SG3464 are the same order):
+  //   1. Shopify orders with "customise"/"alter" in their Notes
+  //   2. Every row written in the Customise Orders tab
+  // A Shopify customise item that already has a sheet row for the same order
+  // number + style is shown ONCE, as that sheet row (it carries the real size,
+  // status, notes and Ready/Shipped marks). A Shipped sheet row hides itself
+  // and the Shopify item it covers.
   window.customProductionNeeded=[];
   const customGroups={};
   const normOrderNo=v=>String(v||'').replace(/\D/g,'');
+  const sheetRows=window.customiseSheetRows||[];
 
-  // Shopify-sourced customise items — status/readiness comes from a lookup
-  // into the tracking sheet by order+style+size.
+  // How many sheet rows (shipped or not) exist for each order number + style
+  const sheetCover={};
+  sheetRows.forEach(r=>{ const k=r.orderKey+'|'+r.code; sheetCover[k]=(sheetCover[k]||0)+1; });
+
+  // Shopify customise orders indexed by order number, so a sheet row with the
+  // same number joins that order instead of appearing as a second one.
+  const shopifyCustomByKey={};
+  customItems.forEach(item=>{ const k=normOrderNo(item.orderNum); if(k&&!shopifyCustomByKey[k]) shopifyCustomByKey[k]=item; });
+
+  // 1. Shopify customise items that no sheet row covers (shown as "Not started")
   customItems.forEach(item=>{
-    const trackKey=normOrderNo(item.orderNum)+'|'+item.code+'|'+item.finalSize;
-    const track=window.customiseTrackingData[trackKey]||null;
-    if(track&&track.shipped) return; // already shipped — drop off the dashboard entirely
+    const k=normOrderNo(item.orderNum)+'|'+item.code;
+    if(sheetCover[k]>0){ sheetCover[k]--; return; } // represented by its sheet row below
     if(!customGroups[item.orderNum]) customGroups[item.orderNum]=[];
-    customGroups[item.orderNum].push({...item,
-      customStatus:track?(track.status||'In progress'):'Not started',
-      customReady:!!(track&&track.ready)});
+    customGroups[item.orderNum].push({...item,sheetNotes:'',customStatus:'Not started',customReady:false});
   });
 
-  // Standalone customise orders — taken fully offline, no Shopify order at
-  // all. Their own row already carries status/ready/shipped directly, so no
-  // tracking-sheet lookup is needed. Grouped by order text + customer name
-  // so multi-item orders (several style/size lines under one order) stay
-  // together, same as a multi-line Shopify order would.
-  (window.customiseStandaloneRows||[]).forEach(row=>{
+  // 2. Every sheet row that isn't shipped
+  // Shopify already shows these orders as fulfilled (shipped) — hide their
+  // sheet rows too, even if "Shipped" hasn't been typed in the sheet yet.
+  const shippedOnShopify=new Set(fulfilledCustomKeys||[]);
+  sheetRows.forEach(row=>{
     if(row.shipped) return; // already shipped — drop off the dashboard entirely
-    const groupKey='STANDALONE:'+row.orderKey+'|'+row.name;
+    if(shippedOnShopify.has(row.orderKey+'|'+row.code)) return;
+    const shop=shopifyCustomByKey[row.orderKey]||null; // same order also exists on Shopify
+    const groupKey=shop?shop.orderNum:'SHEET:'+row.orderKey+'|'+row.name;
     if(!customGroups[groupKey]) customGroups[groupKey]=[];
-    const priority=getPriority(row.date,'');
     customGroups[groupKey].push({
-      orderNum:row.orderText, code:row.code, finalSize:row.size, qty:row.qty,
+      orderNum:shop?shop.orderNum:row.orderText, code:row.code, finalSize:row.size, qty:row.qty,
       itemName:(PRODUCT_IMAGES[row.code]&&PRODUCT_IMAGES[row.code].name)||row.code,
-      customer:row.name, createdAt:row.date, priority, deliveryDate:null, deliveryDateStr:'',
-      note:'', payment:'', isCustom:true,
-      customStatus:row.status||'Not started', customReady:!!row.ready});
+      customer:row.name||(shop?shop.customer:''),
+      createdAt:shop?shop.createdAt:row.date,
+      priority:shop?shop.priority:getPriority(row.date,''),
+      deliveryDate:shop?shop.deliveryDate:null, deliveryDateStr:shop?shop.deliveryDateStr:'',
+      note:shop?shop.note:'', payment:shop?shop.payment:'', isCustom:true,
+      sheetNotes:row.notes, customStatus:row.status||'Not started', customReady:!!row.ready});
   });
 
   Object.keys(customGroups).forEach(on=>{
@@ -1411,7 +1448,8 @@ function runDashboard(){
       // never mixed into the regular "Needs to be Cut" table.
       decorated.forEach(item=>{
         window.customProductionNeeded.push({orderNum:displayOrderNum,customer:item.customer,priority:item.priority,
-          code:item.code,size:item.finalSize,qty:item.qty,status:item.customStatus,itemName:item.itemName});
+          code:item.code,size:item.finalSize,qty:item.qty,status:item.customStatus,itemName:item.itemName,
+          notes:item.sheetNotes||'',shopifyNote:item.note||''});
       });
     }
   });
@@ -1690,8 +1728,8 @@ function renderProduction(){
   const customNeeded=window.customProductionNeeded||[];
   if(customNeeded.length){
     h+='<div class="sec-title" style="color:#7C3AED">🎨 Customise / Alter Orders — Needs Separate Production <span class="stcount">'+customNeeded.length+' items</span></div>';
-    h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">One-off customise/alter requests. Cut and stitched separately — do NOT fulfill from regular stock.</div>';
-    h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th>Status</th></tr></thead><tbody>';
+    h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">Every order in the Customise Orders tab, plus Shopify customise/alter orders. Cut and stitched separately — do NOT fulfill from regular stock.</div>';
+    h+='<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Priority</th><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Qty</th><th>Status</th><th>Notes</th></tr></thead><tbody>';
     [...customNeeded].sort((a,b)=>fullPriOrder({priority:a.priority,orderType:'custom'},{priority:b.priority,orderType:'custom'})).forEach(it=>{
       h+='<tr><td><strong>'+it.orderNum+'</strong></td>';
       h+='<td style="font-size:11px">'+(it.customer||'')+'</td>';
@@ -1703,6 +1741,13 @@ function renderProduction(){
       const statusColor=it.status==='Not started'?'#DC2626':'#92400E';
       const statusBg=it.status==='Not started'?'#FEE2E2':'#FEF3C7';
       h+='<td><span style="background:'+statusBg+';color:'+statusColor+';border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">'+it.status+'</span></td>';
+      // Notes — what production is planned from (measurements, instructions).
+      // pre-line keeps the line breaks typed in the sheet cell.
+      const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      let notesHtml=it.notes?esc(it.notes):'';
+      if(it.shopifyNote) notesHtml+='<div style="'+(notesHtml?'margin-top:6px;':'')+'color:var(--ink-muted);font-size:11px">Shopify: '+esc(it.shopifyNote)+'</div>';
+      if(!notesHtml) notesHtml='<span style="color:var(--ink-muted)">—</span>';
+      h+='<td style="white-space:pre-line;min-width:240px;max-width:380px;font-size:12px;line-height:1.5;vertical-align:top">'+notesHtml+'</td>';
       h+='</tr>';
     });
     h+='</tbody></table></div>';
