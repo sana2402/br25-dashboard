@@ -470,6 +470,73 @@ const PRODUCT_IMAGES = {
 // STATE
 // ============================================================
 const SIZES = ["XS","S","M","L","XL","2XL","3XL"];
+
+// ── SIZE GROUPS ─────────────────────────────────────────────────────────
+// Some styles are cut as ONE combined size (e.g. "S" pieces fit both XS and S).
+// Customers still order XS and S separately on the website, so the stock of every
+// size in a group is pooled: each size sees the whole pool, and shipping a piece
+// of any size in the group uses up that one shared pool (never counted twice).
+// To add another style, add a line:  'BR25-xxx': [['XS','S'],['M','L'],['XL','2XL']]
+const SIZE_GROUPS = {
+  'BR25-101': [['XS','S'],['M','L'],['XL','2XL']]
+};
+function sizeGroupKey(code,size){
+  const g=SIZE_GROUPS[code]; if(!g) return null;
+  for(let i=0;i<g.length;i++) if(g[i].includes(size)) return code+'#'+i;
+  return null;
+}
+function applySizeGroups(stockLeft,qcDeducted){
+  Object.keys(SIZE_GROUPS).forEach(code=>{
+    if(!stockLeft[code]) return;
+    SIZE_GROUPS[code].forEach(group=>{
+      const cell={stock:0,qc:0};
+      group.forEach(sz=>{ cell.stock+=stockLeft[code][sz]||0; cell.qc+=(qcDeducted&&qcDeducted[code]&&qcDeducted[code][sz])||0; });
+      group.forEach(sz=>{
+        Object.defineProperty(stockLeft[code],sz,{
+          get:()=>cell.stock, set:v=>{ cell.stock=v; },
+          enumerable:true, configurable:true
+        });
+        if(qcDeducted&&qcDeducted[code]) Object.defineProperty(qcDeducted[code],sz,{
+          get:()=>cell.qc, set:v=>{ cell.qc=v; },
+          enumerable:true, configurable:true
+        });
+      });
+    });
+  });
+}
+// Dispatch: an XS order may be filled from S stock. Re-map the deduction so
+// Final Inventory is reduced on the sizes that physically hold the pieces.
+function remapPooledDeductions(deductions, inventory){
+  Object.keys(SIZE_GROUPS).forEach(code=>{
+    if(!deductions[code]||!inventory[code]) return;
+    SIZE_GROUPS[code].forEach(group=>{
+      const ordered={}; let any=false;
+      group.forEach(sz=>{ if(deductions[code][sz]>0){ ordered[sz]=deductions[code][sz]; any=true; } });
+      if(!any) return;
+      const stock={}; group.forEach(sz=>{ stock[sz]=(inventory[code].sizes[sz]||0); });
+      const out={}; const left={};
+      // 1) take from the size that was ordered, as far as it has stock
+      group.forEach(sz=>{
+        const want=ordered[sz]||0; const take=Math.min(want,stock[sz]);
+        if(take>0){ out[sz]=(out[sz]||0)+take; stock[sz]-=take; }
+        if(want-take>0) left[sz]=want-take;
+      });
+      // 2) cover what is still missing from other sizes in the group
+      Object.keys(left).forEach(want_sz=>{
+        let need=left[want_sz];
+        group.forEach(sz=>{
+          if(need<=0) return;
+          const take=Math.min(need,stock[sz]);
+          if(take>0){ out[sz]=(out[sz]||0)+take; stock[sz]-=take; need-=take; }
+        });
+        if(need>0) out[want_sz]=(out[want_sz]||0)+need; // nothing left anywhere: keep as ordered
+      });
+      group.forEach(sz=>{ delete deductions[code][sz]; });
+      Object.keys(out).forEach(sz=>{ deductions[code][sz]=out[sz]; });
+    });
+  });
+  return deductions;
+}
 const SECRET_KEY = "sanabharat2418";
 window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSjnlpNSf6xjo_2LQvFB1Wb-mjt1DS92CVaTarO4wnF2m5OWoZ62_UCajmIxsAFQU20g/exec";
 const SIZE_ALIASES = {"XXL":"2XL","2XL":"2XL","3XL":"3XL"};
@@ -1287,6 +1354,7 @@ function runDashboard(){
       qcDeducted[code][sz]=Math.min(withQC,inHand);
     });
   }
+  applySizeGroups(stockLeft,qcDeducted);
 
 
   // Parse orders
@@ -1476,11 +1544,22 @@ function runDashboard(){
     });
   });
   // Subtract QC pieces from total shortfall once per code+size
+  // Sizes pooled together (SIZE_GROUPS) share ONE QC count, so it is used up once
+  // across the group instead of being subtracted from every size.
+  const qcPoolLeft={};
   Object.values(prodMap).forEach(p=>{
     const withQC=(qcDeducted[p.code]&&qcDeducted[p.code][p.size])||0;
     p.withQC=withQC;
     p.committed=p.totalShort; // store original committed before QC reduction
-    p.totalShort=Math.max(0,p.totalShort-withQC);
+    const gk=sizeGroupKey(p.code,p.size);
+    if(gk){
+      if(qcPoolLeft[gk]==null) qcPoolLeft[gk]=withQC;
+      const use=Math.min(p.totalShort,qcPoolLeft[gk]);
+      qcPoolLeft[gk]-=use;
+      p.totalShort=p.totalShort-use;
+    } else {
+      p.totalShort=Math.max(0,p.totalShort-withQC);
+    }
   });
 
   // Calculate potential short: add unconfirmed order quantities
@@ -2507,6 +2586,7 @@ function confirmDispatch(){
     deductions[code][size] = (deductions[code][size]||0) + qty;
     if(!ordersList.includes(orderNum)) ordersList.push(orderNum);
   });
+  remapPooledDeductions(deductions, inventory);
   // Identify which confirmed orders are manual
   const allManual=(window.manualOrders||[]).map(o=>String(o.orderNum).trim());
   ordersList.forEach(on=>{ if(allManual.includes(String(on).trim())) manualOrderNums.push(String(on).trim()); });
