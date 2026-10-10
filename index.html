@@ -485,6 +485,17 @@ function sizeGroupKey(code,size){
   for(let i=0;i<g.length;i++) if(g[i].includes(size)) return code+'#'+i;
   return null;
 }
+// Lying-cut / with-vendor pieces for a size. For pooled sizes (SIZE_GROUPS) the pieces
+// were logged under one size of the pair, so every size in the pair sees the pair's total.
+function getPS(code,size){
+  const raw=(typeof pendingStitch!=='undefined'&&pendingStitch[code])||{};
+  const g=SIZE_GROUPS[code];
+  const grp=g?g.find(x=>x.includes(size)):null;
+  const sizes=grp||[size];
+  let lying=0,vendor=0;
+  sizes.forEach(sz=>{ const r=raw[sz]; if(r){ lying+=r.lying||0; vendor+=r.vendor||0; } });
+  return {lying,vendor};
+}
 function applySizeGroups(stockLeft,qcDeducted){
   Object.keys(SIZE_GROUPS).forEach(code=>{
     if(!stockLeft[code]) return;
@@ -1531,7 +1542,7 @@ function runDashboard(){
       if(item.short<=0) return;
       const key=item.code+'|'+item.finalSize;
       if(!prodMap[key]){
-        const ps=(pendingStitch[item.code]&&pendingStitch[item.code][item.finalSize])||{lying:0,vendor:0};
+        const ps=getPS(item.code,item.finalSize);
         // Use stockLeft (after QC deduction) for accurate in-hand count
         const inv=stockLeft[item.code]?stockLeft[item.code][item.finalSize]||0:(inventory[item.code]?inventory[item.code].sizes[item.finalSize]||0:0);
         const withQCCount=(qcDeducted[item.code]&&qcDeducted[item.code][item.finalSize])||0;
@@ -1714,7 +1725,7 @@ function renderOrders(){
       h+='<td class="num" style="color:'+fg+'">'+item.avail+'</td>';
       const qcAmt=item.withQC||0;
       h+='<td class="num">'+(qcAmt>0?'<span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+qcAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
-      const vendorAmt=(pendingStitch[item.code]&&pendingStitch[item.code][item.finalSize]&&pendingStitch[item.code][item.finalSize].vendor)||0;
+      const vendorAmt=getPS(item.code,item.finalSize).vendor||0;
       h+='<td class="num">'+(vendorAmt>0?'<span style="background:#DBEAFE;color:#1D4ED8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">'+vendorAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
       const officeAmt=getOfficeQty(item.code,item.finalSize);
       h+='<td class="num">'+(officeAmt>0?'<span style="background:#F3E8FF;color:#6B21A8;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600" title="'+officeAmt+' pc(s) in office — may already be accounted for">🏠 '+officeAmt+'</span>':'<span style="color:#BBBBBB">—</span>')+'</td>';
@@ -2133,7 +2144,7 @@ function renderUnconfirmed(){
       });
       const inHand=Math.max(0,rawInHand-committedQty);
       // Get lying cut and with vendor from pendingStitch
-      const psRaw=(pendingStitch[item.code]&&pendingStitch[item.code][item.size])||{lying:0,vendor:0};
+      const psRaw=getPS(item.code,item.size);
       // Subtract what confirmed orders still need from lying/vendor
       // stockLeft already has QC and inHand accounted for - use remaining shortfall from confirmed orders
       let confirmedShortfall=0;
@@ -2265,7 +2276,7 @@ function renderPlanning(){
     if(seen.has(key)) return;
     const [code,size] = key.split('|');
     const uk = unconfirmedMap[key];
-    const ps = (pendingStitch[code]&&pendingStitch[code][size])||{lying:0,vendor:0};
+    const ps = getPS(code,size);
     const inv = inventory[code]?inventory[code].sizes[size]||0:0;
     const stockLeft2 = (window.stockLeft&&window.stockLeft[code])?window.stockLeft[code][size]||0:inv;
     const name = PRODUCT_IMAGES&&PRODUCT_IMAGES[code]?PRODUCT_IMAGES[code].name:(inventory[code]?inventory[code].name:code);
