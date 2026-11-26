@@ -1864,8 +1864,10 @@ function renderProduction(){
     let h='<div class="sec-title" style="color:'+color+'">'+title+' <span class="stcount">'+items.length+' SKUs</span></div>';
     if(note) h+='<div style="font-size:11px;color:var(--ink-muted);margin:-8px 0 12px">'+note+'</div>';
     h+='<div class="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th class="num">Size</th><th class="num">Committed</th><th class="num">Still Short</th><th class="num">In Hand</th><th class="num" style="color:#D97706">With QC</th><th class="num">Lying Cut</th><th class="num">With Vendor</th><th class="num">Oldest Order</th><th>Waiting Orders</th></tr></thead><tbody>';
+    let prevCode=null;
     items.forEach(p=>{
-      h+='<tr><td><div class="prod-cell">'+imgTag(p.code)+'<span class="prod-name">'+p.name+'</span></div></td>';
+      h+='<tr'+(prevCode!==null&&prevCode!==p.code?' style="border-top:3px solid #D9D2C5"':'')+'><td><div class="prod-cell">'+imgTag(p.code)+'<span class="prod-name">'+p.name+'</span></div></td>';
+      prevCode=p.code;
       h+='<td class="code">'+p.code+'</td>';
       h+='<td class="num"><span class="size-badge">'+p.size+'</span></td>';
       h+='<td class="num" style="color:#6B7280;font-weight:500">'+(p.committed||p.totalShort)+'</td>';
@@ -1894,12 +1896,12 @@ function renderProduction(){
   }
 
   let hStage=section('✂️ Needs to be Cut — Nothing at any stage',needsCut,'var(--red)','No stock, nothing cut, not with vendor. Start from scratch.');
-  hStage+=section('⏳ Follow Up Vendor — Already Covered',vendorCovers,'#10B981','Vendor pieces already cover the shortfall. Just follow up for return.');
   hStage+=section('🧵 Send to Vendor — Lying Cut, Not Yet Stitched',sendToVendor,'var(--amber)','Pieces are cut and with you. Send to stitching vendor immediately.');
+  hStage+=section('⏳ Follow Up Vendor — Already Covered',vendorCovers,'#10B981','Vendor pieces already cover the shortfall. Just follow up for return.');
   hStage+=section('⏳ With Vendor — Awaiting Return',withVendor,'#3B82F6','Already given for stitching. Follow up with vendor.');
   hStage+=section('📋 Other Shortfalls',other,'var(--ink-muted)','');
 
-  let h=viewToggle+(view==='style'?styleView():hStage);
+  let h=hStage;
 
   // Customise / Alter orders — tracked entirely separately from regular
   // stock. Never mixed into the sections above.
